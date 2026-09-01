@@ -1,1271 +1,1889 @@
 # ZeroFee — Initial Prototype Master Execution Prompt
 
-## EXECUTION DIRECTIVE
+**Prompt version:** 1.1  
+**Status:** AUTHORITATIVE MASTER SPECIFICATION FOR THE COMPLETE INITIAL PROTOTYPE  
+**Repository:** `arsenijee19/zerofee`
+
+---
+
+# EXECUTION DIRECTIVE
 
 START EXECUTION NOW.
 
-You are working directly in the `arsenijee19/zerofee` repository. At the time this master prompt was written, the repository was empty. Treat this file as the authoritative product and implementation specification for the first end-to-end ZeroFee prototype unless the repository later contains an explicit owner-authored document that supersedes a specific requirement.
+Work directly from the CURRENT default branch of the `arsenijee19/zerofee` repository.
 
-Do not merely summarize this specification, create another plan, produce mockups, or stop after scaffolding. Read this file completely, inspect the current repository state, make safe technical decisions where necessary, and IMPLEMENT the prototype end to end.
+This file is intentionally large. Read it COMPLETELY before making architecture decisions. Until the owner explicitly says otherwise, **all requirements for the complete ZeroFee initial prototype belong in Prompt 1**. Do not create a Prompt 2 merely because the scope is large. If this file has been amended since a previous run, the newest version is authoritative.
 
-The purpose of this phase is not to ship a legally final, production-certified payments company. The purpose is to create a serious, coherent, technically sound, visually polished, testable product prototype that proves the complete ZeroFee business model and user experience while establishing the correct architecture for later production hardening.
+The repository was empty when Prompt 1 was first created. The goal is to build a serious, functional, visually polished, technically coherent end-to-end prototype of the entire core ZeroFee platform, not merely a landing page or payment proof of concept.
 
-The result must be a functional application, not a collection of static screens.
+Do not:
 
-Do not leave core flows as TODOs, dead buttons, fake success screens, or disconnected UI. Where live third-party credentials are unavailable, implement a clearly separated test/mock provider with deterministic states while preserving the exact production integration boundary so that live Stripe Connect can replace the mock without redesigning the product.
+- summarize this specification instead of executing it;
+- stop after scaffolding;
+- deliver disconnected mockups;
+- leave core buttons dead;
+- fake successful payments, KYC, tax, or compliance states in live mode;
+- claim production readiness when external Stripe/legal/tax approvals have not occurred;
+- ask the owner questions that can safely be resolved through this specification, repository state, current official documentation, or a reasonable reversible implementation decision.
 
-Do not ask the owner questions that can be resolved safely from this specification. Prefer a reasonable, documented decision over blocking execution.
+Where live external credentials or approvals are unavailable, build a deterministic mock/test provider behind the same production domain interface. The prototype must remain fully demonstrable and testable without live money movement, while the real Stripe integration boundary must be implemented as far as credentials/configuration permit.
+
+Every implementation decision must preserve the central ZeroFee economics:
+
+> **ZeroFee charges creators a predictable SaaS subscription and takes 0% platform transaction fee from creator membership sales. Payment processing remains real and transparent.**
 
 ---
 
-# 1. PRODUCT DEFINITION
+# 1. PRODUCT THESIS
 
-## 1.1 Working product name
+ZeroFee is a creator membership and community SaaS platform built for creators who are already earning meaningful recurring revenue and dislike revenue-share platforms becoming more expensive as they grow.
 
-The working brand is **ZeroFee**.
+The primary market is NOT the creator earning $30/month.
 
-ZeroFee is a creator-membership SaaS platform designed around one central promise:
+Primary target profile:
 
-> **ZeroFee does not take a percentage of a creator's sales.**
+- established YouTubers;
+- podcasters;
+- newsletter writers;
+- educators;
+- coaches where permitted by payment-provider policy;
+- developers/open-source creators;
+- gaming communities;
+- Discord/Telegram communities;
+- analysts/research creators;
+- professional niche communities;
+- creators with existing Patreon-like memberships;
+- creators earning roughly hundreds to tens of thousands of dollars per month or more.
 
-Creators pay ZeroFee a predictable flat monthly SaaS subscription. Their audience payments are processed through the creator's Stripe Connected Account rather than being collected into a ZeroFee wallet and later manually redistributed.
+Core positioning:
 
-ZeroFee must NOT market itself as having “zero payment processing fees.” Payment processors still charge for payment processing. The ZeroFee promise is specifically:
+> **The membership platform that doesn't tax your success.**
 
-- 0% ZeroFee platform transaction fee on creator membership sales;
-- a predictable flat monthly ZeroFee SaaS subscription;
-- transparent creator economics;
-- no hidden ZeroFee payout fee;
-- creators can choose the net earnings they want to target and ZeroFee can recommend a final retail price that incorporates expected payment-processing costs;
-- the buyer sees the final customer-facing price before checkout rather than seeing an unpleasant surprise fee added at the final checkout step;
-- Stripe/payment-processing costs remain real and must never be misrepresented.
+Preferred claims:
 
-Do not use deceptive copy such as:
-
-- “keep every cent” without qualification;
-- “no fees at all”;
-- “Stripe is free”;
-- “guaranteed exact net after every possible payment event”;
-- “ZeroFee assumes all chargeback/refund losses.”
-
-Preferred positioning examples:
-
-- **0% platform fee. One flat monthly price.**
-- **Your success should not make your platform more expensive.**
+- **0% ZeroFee platform transaction fee.**
+- **One predictable SaaS subscription.**
+- **Your plan does not become more expensive because your revenue grows.**
 - **Choose what you want to earn. ZeroFee helps you price for it.**
-- **No percentage tax on your growth.**
-- **Your audience pays you. ZeroFee provides the software.**
+- **Your members see the real price upfront.**
+- **Your audience, your data, your business.**
 
-All marketing claims must be written so they remain true even after the prototype evolves into production.
+Forbidden/deceptive claims:
+
+- “payment processing is free”;
+- “keep every cent” without qualification;
+- “no fees of any kind”;
+- “every $50 sale always produces exactly $50 after every possible event”;
+- “ZeroFee guarantees all refunds/chargebacks”;
+- “Stripe supports every country”;
+- “ZeroFee handles all of your taxes automatically” unless that is actually enabled and legally true for the transaction;
+- unsupported blanket comparisons such as “Patreon always takes 30–40%.”
+
+Competitor comparisons must separate:
+
+1. platform fee;
+2. payment processing;
+3. app-store fees where applicable;
+4. payout/FX fees where applicable;
+5. taxes.
+
+Never combine unrelated costs to manufacture a sensational percentage.
 
 ---
 
-# 2. BUSINESS MODEL — AUTHORITATIVE FOR THIS PROTOTYPE
+# 2. ZERO FEE DOES NOT MEAN ZERO PAYMENT COST
 
-## 2.1 ZeroFee revenue
+This distinction is fundamental and must be reflected everywhere in code, copy, analytics and accounting terminology.
 
-The prototype must implement a configurable creator SaaS plan whose default working price is:
+ZeroFee's initial commercial promise:
 
-**$50 USD / month**
+`ZeroFee platform transaction fee on creator membership sales = 0%`
 
-This amount is a product configuration, not a hardcoded assumption scattered throughout the application.
+Payment processors still charge for processing.
 
-Create a central plan/pricing configuration so the owner can later change:
+Do not hide payment processing from the creator. Instead make the economics predictable and easy to understand.
 
-- monthly price;
-- annual price;
-- trial duration;
-- grace period;
-- quotas;
-- feature entitlements;
-- supported currencies;
-- whether a plan is publicly available.
+A creator's money flows and ZeroFee's SaaS revenue must be separate concepts.
 
-For the first prototype, one paid creator plan is sufficient, but the data model and entitlement layer must support multiple plans later without migration pain.
+## Relationship A — creator pays ZeroFee
 
-A creator's ZeroFee SaaS subscription is financially separate from the audience's membership subscription to that creator.
+Creator → ZeroFee → creator SaaS subscription.
 
-There are therefore TWO different payment relationships:
+## Relationship B — fan pays creator
 
-### Relationship A — Creator pays ZeroFee
+Fan → creator payment/connected account → processor costs/tax mechanics → creator balance/payout.
 
-Creator → ZeroFee platform → flat SaaS subscription.
+ZeroFee must not implement a custodial internal creator wallet for the initial product.
 
-### Relationship B — Fan pays Creator
+ZeroFee must not collect fan GMV into its own ordinary platform balance and then manually “pay creators out” unless a future explicitly approved merchant-of-record/custodial model replaces this architecture.
 
-Fan → creator's Stripe Connected Account → creator membership subscription.
-
-Do not conflate these two flows.
-
-## 2.2 Core no-loss rule for ZeroFee
-
-The architecture must be designed so ZeroFee does **not** subsidize creator payment-processing fees from the $50 SaaS fee.
-
-ZeroFee must not promise:
-
-> “Creator receives $X and ZeroFee pays whatever Stripe charges.”
-
-That model becomes structurally unprofitable at high GMV.
-
-Instead:
-
-- payment-processing fees belong to the creator-side payment relationship;
-- the customer-facing price can be increased in advance to target a desired creator net amount;
-- ZeroFee does not absorb variable payment-processing costs unless a future owner-controlled feature explicitly enables a subsidy.
-
-Create an invariant in the core domain model:
+Core domain invariant:
 
 `platform_subsidizes_creator_processing = false`
 
-for the initial product.
+Core domain invariant:
 
-Do not implement an accidental path that violates this invariant.
+`platform_transaction_fee_bps = 0`
+
+for creator membership sales in the initial product.
 
 ---
 
-# 3. CREATOR PRICING MODEL
+# 3. ZERO FEE SAAS PLANS AND UNIT ECONOMICS
 
-Pricing is one of the most important differentiators of this product. Treat it as a first-class domain, not a small form field.
+A single unlimited $29/$50 plan is not economically safe if one creator can consume extreme support, storage, email, API, member-management or media resources.
 
-## 3.1 Two pricing modes
+ZeroFee must remain **0% of creator revenue**, but SaaS plans may scale based on product usage, not GMV.
 
-A creator tier must support two explicit pricing modes.
+Build full support for multiple creator plans from the prototype.
 
-### Mode A — SIMPLE PRICE
+Seed editable DEMO plans such as:
 
-Creator enters the customer-facing amount.
+| Plan | Demo monthly price | Example active-member allowance | Purpose |
+|---|---:|---:|---|
+| Starter | $19 | 100 | smaller established creators |
+| Creator | $49 | 1,000 | core target |
+| Pro | $99 | 5,000 | larger communities |
+| Business | $199 | 25,000 | high-scale creators |
+
+These are **prototype defaults, not permanent commercial decisions**.
+
+Admin must be able to change without code deployment:
+
+- plan name;
+- monthly price;
+- annual price;
+- active member allowance;
+- storage quota;
+- email/broadcast quota;
+- API quota;
+- integration entitlements;
+- analytics retention;
+- team-seat allowance architecture;
+- custom-domain entitlement;
+- trial duration;
+- grace period;
+- plan visibility;
+- upgrade recommendation thresholds.
+
+IMPORTANT:
+
+- never make plan selection depend directly on revenue or GMV;
+- creator earning $500,000 can remain on a plan if they fit its operational/usage limits;
+- upgrading must be justified by member count, resource usage or features, not success tax;
+- do not promise unlimited video, AI, email or bandwidth blindly.
+
+Create `docs/UNIT_ECONOMICS.md` documenting:
+
+- creator SaaS MRR vs creator GMV;
+- zero revenue-share model;
+- cost-sensitive resources;
+- support burden;
+- storage/bandwidth risk;
+- email delivery risk;
+- moderation/compliance cost;
+- webhook/event volume;
+- suggested gross-margin telemetry;
+- future enterprise/custom pricing that remains non-percentage based.
+
+---
+
+# 4. CREATOR PRICING — TWO MODES
+
+Pricing is a first-class domain.
+
+## 4.1 Simple Price
+
+Creator sets public recurring price.
 
 Example:
 
-- creator sets $50/month;
-- customer sees $50/month;
-- payment-processing costs are deducted according to the connected account/payment processor rules;
-- creator receives the remainder.
+`$50/month`
 
-UI description:
+Buyer sees $50/month.
+
+Processor/tax deductions then follow the connected account and transaction rules.
+
+Creator copy:
 
 > **Set the public price**  
-> Your members pay exactly this amount. Payment-processing costs are deducted from your earnings.
+> Members pay this amount. Applicable processing costs and taxes are handled according to your payment setup.
 
-### Mode B — TARGET NET — DEFAULT/RECOMMENDED
+## 4.2 Target Net — default/recommended
 
-Creator enters the amount they want to target as their earnings before refunds, disputes, taxes, exceptional payment-method costs, or other later adjustments.
+Creator tells ZeroFee what they would like to target as proceeds from a successful supported payment before later events such as refund, dispute, reserve, tax liability or exceptional processing differences.
 
-Example:
-
-- creator enters desired target net: $50;
-- ZeroFee Pricing Engine calculates a recommended public retail price, for example $52.xx depending on the active processing profile;
-- creator sees the calculation before publishing;
-- buyer sees only the final retail price, e.g. `$52.99/month`;
-- buyer must not be surprised at checkout by a newly added “ZeroFee fee.”
-
-The UI should make this feel simple:
+Example UX:
 
 **I want to earn**  
 `$50.00`
 
 **Recommended member price**  
-`$52.99 / month`
+`$52.xx/month`
 
-**ZeroFee platform fee on this sale**  
+**ZeroFee platform transaction fee**  
 `$0.00`
 
-Do not copy these values literally as fee truth; use the Pricing Engine.
+The creator can adjust the desired target until the final retail price has attractive psychology, e.g. $49.99 or $54.99.
 
-## 3.2 No hidden buyer surcharge
+The buyer must see only the final approved recurring retail price from the public tier card onward.
 
-The preferred ZeroFee UX is NOT:
+Do NOT show:
 
-`Membership $50 + Processing fee $2.99 = $52.99`
+`$50 + ZeroFee fee $2.99`
 
-Instead, after creator approval:
+as a surprise checkout surcharge.
 
-`Membership $52.99/month`
+The customer-facing amount is a normal retail price chosen/approved by the creator using ZeroFee's recommendation.
 
-The public creator page, tier card, confirmation screen and checkout initiation must display the final price consistently.
+Taxes that legally depend on buyer location are a separate matter and must be disclosed correctly; they are not a ZeroFee platform surcharge.
 
-Do not implement a surprise fee line item added only at the final checkout step.
+---
 
-This requirement is both a UX principle and a product principle.
+# 5. PRICING ENGINE
 
-## 3.3 Pricing Engine
+Implement a dedicated server-side `PricingEngine`.
 
-Implement a dedicated server-side `PricingEngine` domain service.
-
-Never calculate money with JavaScript floating-point arithmetic.
+Never perform money math with floating-point arithmetic.
 
 Use:
 
-- integer minor units for monetary amounts, e.g. cents;
-- decimal/fixed-point representation for rates;
-- explicit currency metadata;
-- explicit rounding strategy.
+- integer minor units;
+- currency metadata;
+- fixed/decimal percentage representation;
+- explicit rounding rules;
+- immutable calculation snapshots.
 
-The engine must accept at minimum:
+Input must support:
 
+- creator target net OR desired public price;
 - currency;
-- desired net amount OR desired public price;
+- billing interval;
 - pricing mode;
-- payment fee profile;
-- billing fee profile if applicable;
-- optional safety buffer;
-- optional minimum transaction amount;
-- allowed payment method group.
-
-A fee profile should be able to describe:
-
-- percentage component;
-- fixed component;
-- optional billing/subscription percentage;
-- optional cross-border estimate;
+- processor fee profile;
+- recurring billing fee component if applicable;
+- payment-method group;
+- domestic/cross-border assumptions;
 - optional FX estimate;
-- optional configurable safety margin;
-- payment-method identifier;
+- safety buffer;
+- minimum transaction amount;
+- tax behavior separate from processing gross-up.
+
+Fee profile model must support versioning and at minimum:
+
+- name;
+- provider;
 - country/region applicability;
 - currency applicability;
-- effective-from/effective-to dates;
-- enabled state.
-
-Do not present example Stripe rates as universal truth.
-
-Seed the prototype with clearly labeled **DEMO fee profiles**, not claimed global Stripe pricing.
-
-Example profile metadata can resemble:
-
-- `Demo domestic card`;
+- payment-method applicability;
 - percentage component;
 - fixed component;
-- optional recurring billing component.
+- recurring/billing percentage if relevant;
+- optional cross-border estimate;
+- optional FX estimate;
+- safety-buffer rule;
+- valid-from;
+- valid-to;
+- active flag.
 
-The admin must be able to modify fee profiles without code changes.
+Seed clearly labeled DEMO fee profiles. Never label a demo value as a globally valid Stripe fee.
 
-## 3.4 Gross-up formula
+For a simple percentage + fixed fee profile, the logic is mathematically equivalent to:
 
-For simple percentage + fixed-cost profiles, the mathematical model should be equivalent to:
+`gross = (target_net + fixed_fee) / (1 - percentage_rate)`
 
-`gross = (target_net + fixed_cost) / (1 - percentage_cost)`
+before currency-aware rounding/safety treatment.
 
-then apply currency-aware rounding and optional safety buffer.
+Do not scatter this formula through React components.
 
-However, implement the calculation through the domain service rather than scattering this formula in UI components.
+Store a pricing calculation snapshot with a price version so historical prices remain explainable even if admin fee profiles later change.
 
-Unit-test:
+Test:
 
-- normal values;
-- very small values;
-- high values;
-- percentages near configuration limits;
-- zero fixed fee;
-- zero percentage fee;
-- invalid profiles;
+- zero percentage;
+- zero fixed cost;
+- normal amounts;
+- small amounts;
+- huge amounts;
+- invalid rates;
 - rounding boundaries;
-- multiple currencies.
+- zero-decimal currencies where supported;
+- different billing intervals;
+- buffer enabled/disabled;
+- multiple currencies;
+- profile expiry;
+- missing profile;
+- payment method mismatch.
 
-## 3.5 Target net is not an unlimited financial guarantee
+## 5.1 Target net is an estimate, not insurance
 
-The product copy must distinguish:
+Copy must explain, in plain language but not clutter the primary UI:
 
-**target earnings for the successful supported payment**
+> Target Net is calculated using your active payment-cost assumptions for a successful supported payment. Refunds, disputes, taxes, reserves, FX changes or exceptional processing costs can change final proceeds.
 
-from later events such as:
+Do not guarantee a net amount across events that occur after the successful charge.
 
-- refund;
-- chargeback/dispute;
-- FX adjustment;
-- tax;
-- exceptional payment-method pricing;
-- Stripe account reserve;
-- negative balance recovery;
-- regulatory deductions.
+---
 
-Do not market the recommendation engine as an unconditional insurance policy.
+# 6. PRICE VERSIONING AND GRANDFATHERING
 
-For the prototype, use wording such as:
-
-> “Target net estimate based on your active payment-cost profile. Refunds, disputes, taxes and exceptional processing costs can change final earnings.”
-
-Keep this explanation available but do not clutter the primary UX.
-
-## 3.6 Price versioning
-
-Membership prices are versioned.
-
-Changing the price of a tier must not silently alter existing subscriber economics.
+A tier is not the same as a price.
 
 Model:
 
-- Tier = product concept;
-- TierPriceVersion = immutable price/version used for subscriptions.
+- `CreatorTier` = membership offering;
+- `TierPriceVersion` = immutable billing price definition.
 
-When creator changes pricing:
+When creator changes price:
 
-- new subscribers use the new active version;
-- existing subscriptions remain on their version by default;
-- future bulk migration is an explicit operation, not an accidental side effect.
+- create a new price version;
+- new members use new price;
+- existing members remain grandfathered by default;
+- creator can later initiate an explicit existing-member migration;
+- migrations must preview affected members and effective dates;
+- no silent price mutation.
+
+Support monthly and annual tier prices in the prototype.
+
+Annual pricing must be separately configured/calculated rather than multiplying a monthly rounded amount blindly.
 
 ---
 
-# 4. STRIPE CONNECT ARCHITECTURE
+# 7. STRIPE CONNECT — INTENDED PAYMENT ARCHITECTURE
 
-## 4.1 Product intent
+The desired production architecture is Stripe Connect with the creator financially separated from ZeroFee's platform balance.
 
-Creators should not need to operate Stripe manually as part of normal ZeroFee use.
+Use current official Stripe documentation at implementation time rather than relying on old “Standard/Express/Custom” assumptions if the Accounts API model has evolved.
 
-The UX must say things such as:
+## 7.1 Embedded onboarding
+
+Creators should not need to manually operate stripe.com for normal ZeroFee onboarding.
+
+Creator UX terminology:
 
 - `Set up payouts`;
-- `Verify your identity`;
+- `Verify identity`;
 - `Add payout account`;
+- `Complete verification`;
 - `Payouts active`.
 
-Avoid making the creator feel they must learn a separate financial product.
+Use Stripe Connect Embedded Onboarding where live configuration permits.
 
-The creator should be able to complete onboarding and later see payment/payout information within ZeroFee wherever Stripe's supported embedded components allow it.
+ZeroFee can collect ordinary application/business information first and prefill legally permitted account fields.
 
-## 4.2 Embedded onboarding
+Stripe should collect sensitive identity documents and verification data directly whenever possible.
 
-Use the current recommended Stripe Connect **embedded onboarding** architecture when live Stripe credentials/configuration are available.
+Do not create a duplicate KYC-document vault.
 
-Requirements:
+The creator must personally perform any consent, identity or agreement action Stripe requires.
 
-- create/retrieve a connected account through the server;
-- prefill legally allowed information already collected by ZeroFee;
-- render Stripe-supported embedded onboarding within ZeroFee;
-- allow Stripe to own identity verification/document collection where possible;
-- never collect or store raw identity-document files in ZeroFee if Stripe can collect them directly;
-- surface account requirements in a creator-friendly way;
-- do not claim the creator is verified merely because they completed the ZeroFee form;
-- verification/payment/payout readiness must be based on Stripe's actual account/capability state.
+ZeroFee must never impersonate the creator to accept Stripe agreements.
 
-Stripe currently provides embedded onboarding and embedded account/payment/payout components. Use the API recommended by the Stripe documentation available at implementation time. Do not blindly use legacy account-type assumptions if Stripe's current Accounts API has evolved.
+## 7.2 Direct charges
 
-Reference during implementation:
+Intended fan-payment topology:
 
-- https://docs.stripe.com/connect/onboarding
-- https://docs.stripe.com/connect/embedded-components
-- https://stripe.com/connect/pricing
+fan → creator connected account → processor → creator balance/payout.
 
-## 4.3 Direct charges
+Not:
 
-The intended creator membership payment architecture is **Direct Charges on the connected account**, subject to Stripe approving this platform and the exact Connect configuration.
+fan → ZeroFee wallet → ZeroFee manually pays creator.
 
-Audience payments must not be designed as:
+Use direct charges for creator membership payments if the final approved Stripe platform configuration supports the intended model.
 
-fan → ZeroFee wallet → manual ZeroFee payout to creator.
+## 7.3 Stripe handles connected-account pricing
 
-The intended architecture is:
+Preferred production direction: Stripe directly sets/collects processing pricing from connected users where this option is available and approved.
 
-fan → creator connected account → Stripe processing → creator balance/payout.
+Do not hardcode availability.
 
-ZeroFee records the business event, membership entitlement and analytics, but ZeroFee does not create an internal custodial wallet for creator funds.
+Admin capabilities must explicitly expose platform configuration facts such as:
 
-Do not build a fake “wallet balance” that implies ZeroFee is holding creator funds.
-
-## 4.4 Stripe handles pricing for connected users
-
-The preferred production direction is Stripe Connect's model where **Stripe handles pricing for connected users**, because Stripe currently describes this model as Stripe setting/collecting payment-processing fees directly from connected users and lists no additional platform account/payout-volume/per-payout Connect fees under that pricing mode, subject to region/configuration.
-
-Reference:
-
-- https://stripe.com/connect/pricing
-- https://support.stripe.com/questions/monetizing-payments-with-stripe-connect
-
-Do not hardcode this as legally guaranteed in every region. Implement a provider capability/configuration layer that can represent whether the active platform account supports the desired fee and loss-liability model.
-
-## 4.5 Loss liability
-
-The preferred ZeroFee model is one in which, for direct charges and the approved Connect configuration, the connected account is responsible for its Stripe fees/refunds/chargebacks and Stripe covers qualifying unrecoverable account losses rather than ZeroFee owning creator negative balances.
-
-However:
-
-- this is a Stripe contractual/configuration matter;
-- do not represent it as active until the account/platform configuration confirms it;
-- never implement an application-level promise that overrides Stripe's actual agreement.
-
-Create an admin-visible capability/config state such as:
-
+- `CONTENT_PLATFORM_APPROVAL_CONFIRMED`;
 - `DIRECT_CHARGES_ENABLED`;
 - `STRIPE_HANDLES_CONNECTED_PRICING`;
 - `STRIPE_MANAGED_LOSS_LIABILITY_CONFIRMED`;
-- `CONTENT_PLATFORM_APPROVAL_CONFIRMED`.
+- `STRIPE_TAX_ENABLED`;
+- `LIVE_CHARGES_ALLOWED`.
 
-For prototype/mock mode these may be simulated, but they must be visibly marked `TEST/DEMO`.
+In mock mode these must be visibly labeled TEST/DEMO.
 
-## 4.6 Creator subscription billing to ZeroFee
+## 7.4 Loss liability
 
-The creator's $50/month ZeroFee SaaS subscription is a separate platform Billing subscription.
+Preferred model is one where connected account bears fees/refunds/chargebacks for its direct charges and Stripe's contracted loss-liability arrangement covers qualifying unrecoverable account loss rather than ZeroFee silently becoming insurer.
 
-Build a `PlatformBillingProvider` interface separate from `CreatorPaymentsProvider`.
+This is a contractual/provider capability, not an application promise.
 
-Even if both use Stripe initially, preserve this domain separation.
+Never claim this is active unless actual Stripe configuration confirms it.
 
-Creator states should include at minimum:
+## 7.5 Platform SaaS billing is separate
 
-- no plan;
-- trialing if enabled;
-- active;
-- past due;
-- grace period;
-- suspended;
-- cancelled.
+Implement `PlatformBillingProvider` separately from `CreatorPaymentsProvider` even if both use Stripe.
 
-A creator who loses ZeroFee SaaS entitlement must not silently continue using paid creator functionality forever.
+Creator SaaS billing states:
 
-For the prototype:
+- NONE;
+- TRIALING;
+- ACTIVE;
+- PAST_DUE;
+- GRACE;
+- SUSPENDED;
+- CANCEL_AT_PERIOD_END;
+- CANCELLED.
 
-- allow a configurable grace period;
-- do not delete creator data immediately;
-- prevent new paid sales once suspended, or use a clearly documented prototype policy;
-- public content can remain visible depending on the suspension reason;
-- admin can manually override billing entitlement with audit logging.
+Keep creator data when SaaS billing lapses.
 
-## 4.7 Webhooks
+Enforce a documented suspension policy after grace period rather than silently giving unlimited paid access forever.
 
-Implement Stripe webhook handling correctly from the first prototype.
+---
 
-Requirements:
+# 8. PAYMENT PROVIDER ABSTRACTION AND MOCK MODE
 
-- raw-body signature verification;
-- separate platform and connected-account event routing as required by Stripe architecture;
-- idempotency by Stripe event ID;
-- persistent webhook event table;
-- processing status;
-- attempt count;
-- error details safe for logs;
-- replay capability in admin for failed internal processing;
-- no duplicate membership creation;
-- no duplicate entitlement transitions;
-- no duplicate emails/notifications caused by repeated webhooks.
+The app must run fully without live payment credentials.
 
-Important events will depend on the current Stripe API, but domain handling must cover:
+Support:
 
-- connected account updates/requirements;
-- checkout/payment success/failure;
-- subscription lifecycle;
-- invoice payment success/failure;
+`CREATOR_PAYMENTS_PROVIDER=mock|stripe`
+
+`PLATFORM_BILLING_PROVIDER=mock|stripe`
+
+The mock provider must use the same domain contract and simulate:
+
+- connected account not created;
+- onboarding incomplete;
+- identity pending;
+- additional information required;
+- approved/payment-ready;
+- restricted/suspended;
+- successful payment;
+- failed payment;
+- subscription renewal;
+- cancellation;
 - refund;
-- dispute;
-- payout/account status as relevant.
+- partial refund if implemented;
+- dispute opened;
+- dispute won/lost;
+- payout state;
+- negative/restricted account state;
+- failed SaaS billing;
+- card-update recovery.
 
-Do not trust browser redirects as proof of payment.
+Display `TEST MODE` prominently whenever mock/test financial state is shown.
 
-Payment state must be webhook/server-authoritative.
+Never visually imply fake test money is live revenue.
 
-## 4.8 Missing Stripe credentials
+---
 
-The repository must remain runnable without live Stripe credentials.
+# 9. WEBHOOKS AND EVENT CORRECTNESS
+
+Payment and subscription state is server/provider-authoritative.
+
+Browser success redirect is NOT proof of payment.
 
 Implement:
 
-`PAYMENTS_PROVIDER=mock|stripe`
+- raw-body signature verification;
+- platform vs connected-account event routing;
+- provider event scope;
+- unique provider event IDs;
+- idempotent processing;
+- persistent webhook event store;
+- attempt count;
+- processing status;
+- safe error;
+- internal replay;
+- correlation IDs;
+- no duplicate member subscription;
+- no duplicate entitlement;
+- no duplicate notification;
+- transaction-safe state transitions.
 
-and equivalent configuration for platform billing if useful.
+Admin webhook console must show safe diagnostics and allow internal replay.
 
-The mock provider must:
-
-- use the same domain interfaces;
-- simulate realistic states;
-- simulate onboarding requirements;
-- simulate approved/rejected/needs-info statuses;
-- simulate payment success/failure;
-- simulate subscription lifecycle;
-- simulate refund/dispute events;
-- make E2E testing deterministic.
-
-The application must prominently show `TEST MODE` when mock/test financial providers are active.
-
-Do not make mock mode visually indistinguishable from production money movement.
-
----
-
-# 5. STRIPE / CONTENT PLATFORM APPROVAL — DO NOT IGNORE
-
-ZeroFee is intended to host/distribute third-party creator content and enable creators to receive payments for exclusive content/memberships.
-
-Stripe currently treats content-creation platforms as a restricted business category requiring additional due diligence/platform approval.
-
-Reference:
-
-- https://stripe.com/legal/restricted-businesses
-- https://support.stripe.com/questions/prohibited-and-restricted-businesses-list-faqs
-
-Therefore the prototype must make this requirement explicit in both architecture and documentation.
-
-Create `docs/STRIPE_APPROVAL_READINESS.md` documenting:
-
-- what ZeroFee does;
-- why it is a content-creation platform;
-- intended direct-charge architecture;
-- creator pre-screening;
-- prohibited-content controls;
-- report/takedown workflow;
-- auditability;
-- creator KYC delegated to Stripe where applicable;
-- ZeroFee's own content/business review;
-- open questions requiring Stripe confirmation before production launch.
-
-Do not claim production readiness until Stripe has approved the platform/configuration.
+Provider payloads must be redacted where needed.
 
 ---
 
-# 6. CREATOR COMPLIANCE PRE-SCREENING
+# 10. STRIPE CONTENT-PLATFORM APPROVAL
 
-Stripe identity verification is not the same as ZeroFee verifying what a creator intends to sell.
+ZeroFee hosts/distributes third-party creator content and enables paid memberships. Treat Stripe approval for this platform category as a real launch dependency.
 
-ZeroFee must perform a creator/business-content pre-screen before enabling payments.
+Before production launch, Stripe must confirm the exact acceptable business model and Connect setup.
 
-## 6.1 Creator application
+Create `docs/STRIPE_APPROVAL_READINESS.md` containing:
+
+- product description;
+- target creator categories;
+- explicit adult-content prohibition under Stripe-based product;
+- creator review process;
+- direct-charge architecture;
+- moderation/reporting;
+- prohibited categories;
+- KYC division of responsibility;
+- dispute/refund handling;
+- tax architecture summary;
+- target countries;
+- open Stripe questions;
+- required approvals/capabilities.
+
+Do not call the app production-ready until approval/configuration has actually been confirmed.
+
+---
+
+# 11. COUNTRY ELIGIBILITY — DO NOT ASSUME GLOBAL AVAILABILITY
+
+ZeroFee cannot pretend every creator in every country can receive payments through the same Stripe Connect setup.
+
+Implement a first-class `CountryCapabilityRegistry`.
+
+For each country/market, support fields such as:
+
+- creator onboarding enabled;
+- individuals supported;
+- companies supported;
+- charges enabled;
+- payouts enabled;
+- supported settlement currencies;
+- supported presentment currencies;
+- available payment methods;
+- tax readiness status;
+- terms/privacy availability;
+- Stripe/PSP approval state;
+- platform manual-approval requirement;
+- notes/internal restrictions;
+- launch status: `UNSUPPORTED`, `WAITLIST`, `BETA`, `AVAILABLE`, `PAUSED`.
+
+Do not hardcode marketing claims about Serbia or any other country based on memory.
+
+In live mode, current provider documentation/configuration is authoritative.
+
+Creator registration flow:
+
+1. choose country;
+2. ZeroFee checks country registry;
+3. if AVAILABLE/BETA → continue according to rules;
+4. if WAITLIST → capture email/interest, do not fake payout readiness;
+5. if unsupported → explain clearly and stop payment onboarding.
+
+Admin can manage market availability without code change.
+
+Create `docs/COUNTRY_AND_CURRENCY_STRATEGY.md`.
+
+---
+
+# 12. MERCHANT / SELLER / TAX RESPONSIBILITY MODEL
+
+This is a major product area, not a future footnote.
+
+ZeroFee's intended model is that creator membership sales are creator-side sales, not ZeroFee reselling creator content as Merchant of Record.
+
+However, exact merchant/legal/tax treatment depends on jurisdiction and Stripe contract configuration.
+
+Therefore model it explicitly.
+
+Create a platform-level `CommerceResponsibilityProfile` with states/fields such as:
+
+- intended seller: creator;
+- payment processor: Stripe/other;
+- merchant-of-record status: false/unknown/confirmed by jurisdiction;
+- tax calculation provider;
+- tax collection responsibility status;
+- tax remittance responsibility status;
+- receipt/invoice issuer policy;
+- statement descriptor policy;
+- legal-review status.
+
+Never infer these from UI copy alone.
+
+Create `docs/MERCHANT_AND_TAX_RESPONSIBILITY.md` documenting what is known, what is assumption, and what requires professional confirmation.
+
+---
+
+# 13. VAT / GST / SALES TAX ARCHITECTURE
+
+Tax must be architected into the prototype from day one.
+
+The application must not tell creators:
+
+> “ZeroFee saves you 10%, now taxes are your problem, good luck.”
+
+Instead build a guided tax-readiness layer while remaining honest about legal responsibility.
+
+## 13.1 TaxProvider interface
+
+Implement:
+
+`TaxProvider = mock | stripe_tax | disabled`
+
+or equivalent abstraction.
+
+Tax domain must be separate from PricingEngine's processor-fee gross-up.
+
+Support at minimum:
+
+- seller/creator country;
+- buyer billing country/address data provided through payment flow;
+- product/service tax category placeholder;
+- tax-inclusive vs tax-exclusive configuration where legally appropriate;
+- tax registration records/reference IDs;
+- calculation result snapshot;
+- tax amount;
+- tax jurisdiction metadata;
+- tax collection status;
+- remittance status/owner;
+- receipt/invoice metadata;
+- exemption/tax-ID architecture where relevant;
+- `UNKNOWN/NOT_CONFIGURED` states.
+
+Do not build homemade global tax-law logic.
+
+Use provider APIs for calculation where configured.
+
+## 13.2 Public price and tax
+
+ZeroFee's “no surprise fee” promise applies to ZeroFee platform fees.
+
+Taxes can legally depend on buyer location.
+
+Public pricing UI must therefore support legally accurate wording such as:
+
+- tax included where required/configured;
+- taxes may apply based on location;
+- final tax shown before payment confirmation.
+
+Never disguise tax as a ZeroFee fee.
+
+Never hide a known mandatory tax until after payment.
+
+## 13.3 Creator tax center
+
+Create a creator Tax/Compliance section showing, based on actual configuration:
+
+- tax collection configured/not configured;
+- registrations on file;
+- countries requiring owner attention according to provider data;
+- downloadable tax/payment summaries;
+- warnings that ZeroFee is not providing tax/legal advice;
+- links to provider-managed registration/reporting components when available.
+
+Do not provide fabricated legal conclusions.
+
+## 13.4 Tax reporting
+
+Architecture must account for provider/market tax reporting such as US connected-account reporting requirements where applicable.
+
+Do not assume Stripe automatically files every required form for every Connect configuration.
+
+Create owner checklist items to confirm:
+
+- 1099 or equivalent reporting responsibility;
+- W-8/W-9 collection where applicable;
+- EU VAT/GST responsibilities;
+- platform's own SaaS VAT/tax;
+- creator-to-fan tax;
+- invoices/receipts;
+- record retention.
+
+---
+
+# 14. RECEIPTS, INVOICES AND STATEMENT CLARITY
+
+Chargebacks increase when buyers do not recognize the transaction.
+
+Design the payment experience so the buyer knows:
+
+- which creator they joined;
+- what ZeroFee is;
+- recurring amount;
+- renewal interval;
+- seller/merchant identity as legally configured;
+- cancellation/refund path;
+- support path.
+
+Receipt/invoice generation must follow the configured merchant/tax model.
+
+Do not blindly issue a receipt claiming ZeroFee sold creator content if creator is the seller.
+
+Statement descriptor configuration must be documented and tested in live/test Stripe mode as supported.
+
+---
+
+# 15. CREATOR APPLICATION AND PRE-SCREENING
+
+Stripe KYC answers “who is this person/business?”
+
+ZeroFee pre-screening answers “what do they plan to sell here and do we allow it?”
 
 Collect:
 
-- legal/display name distinction;
 - creator display name;
-- email;
+- legal type: individual/business;
 - country;
-- individual/business selection;
-- public creator category;
-- detailed description of what they plan to sell;
-- examples of expected paid content;
-- existing website/social URLs;
-- approximate expected monthly revenue range;
-- approximate audience size range;
-- whether content includes uploads, downloads, live services or community access;
-- confirmation of rights to sell/upload content;
-- confirmation of prohibited-content policy;
-- acceptance of Terms/Creator Agreement placeholders.
+- category;
+- detailed description of paid offering;
+- examples of paid content/benefits;
+- public website/social links;
+- audience-size range;
+- expected monthly membership revenue range;
+- content formats;
+- community integrations planned;
+- confirmation they own/have rights to distribute content;
+- acceptance of Acceptable Use/Creator Terms;
+- explicit prohibited-content acknowledgement.
 
-Do not collect unnecessary sensitive data just because it might be useful later.
+Do not collect unnecessary sensitive PII.
 
-## 6.2 Application state machine
+Application states:
 
-Implement explicit states:
+- DRAFT;
+- SUBMITTED;
+- UNDER_REVIEW;
+- NEEDS_INFORMATION;
+- APPROVED_FOR_PAYOUT_ONBOARDING;
+- REJECTED;
+- SUSPENDED_POST_APPROVAL.
 
-- `DRAFT`;
-- `SUBMITTED`;
-- `UNDER_REVIEW`;
-- `NEEDS_INFORMATION`;
-- `APPROVED_FOR_STRIPE_ONBOARDING`;
-- `REJECTED`;
-- `SUSPENDED_POST_APPROVAL`.
+Admin can:
 
-All transitions must be server-authorized and audit logged.
-
-## 6.3 Admin review
-
-Admin must be able to:
-
-- view application;
-- inspect creator description and links;
-- add internal notes;
+- review;
+- request info;
 - approve;
-- request additional information;
 - reject with reason;
 - suspend later;
-- see history.
+- add private notes;
+- see immutable history.
 
-The creator must see a clear, non-technical status screen.
+Every important transition is audited.
 
-Example:
-
-`Application under review` → `Approved` → `Set up payouts`.
-
-Do not allow creator payment activation solely because a boolean field was modified client-side.
+Creator cannot self-approve through client-side mutation.
 
 ---
 
-# 7. PROHIBITED CONTENT / PLATFORM SAFETY
+# 16. KYC / PAYOUT ONBOARDING UX
 
-For prototype purposes, implement a conservative policy framework.
+After ZeroFee application approval:
 
-ZeroFee must not be positioned as an adult-content/OnlyFans payment workaround.
+1. creator opens `Set up payouts`;
+2. ZeroFee creates/retrieves connected account server-side;
+3. prefilled data is passed where allowed;
+4. embedded Stripe onboarding collects remaining legal/KYC/bank information;
+5. creator accepts required provider agreements personally;
+6. provider account status is synchronized;
+7. ZeroFee enables sales only when both ZeroFee review and provider payment readiness are satisfied.
 
-At minimum prohibit in the prototype policy:
+Provider readiness states:
+
+- NOT_CREATED;
+- ONBOARDING_REQUIRED;
+- PENDING_PROVIDER_REVIEW;
+- NEEDS_INFORMATION;
+- RESTRICTED;
+- PAYMENT_READY;
+- PAYOUT_READY;
+- SUSPENDED/DISABLED.
+
+Do not use one vague `isVerified` boolean.
+
+Creator dashboard must surface provider actions without requiring normal stripe.com operation wherever embedded components permit.
+
+---
+
+# 17. PROHIBITED CONTENT AND PLATFORM SAFETY
+
+ZeroFee Stripe-based product is NOT an adult-content/OnlyFans payment workaround.
+
+Prototype Acceptable Use must conservatively prohibit at minimum:
 
 - illegal products/services;
-- sexual/pornographic content where prohibited by payment-provider rules;
-- non-consensual sexual content;
+- pornography/sexual services prohibited by PSP rules;
 - sexual exploitation;
-- CSAM or anything involving minors sexually;
-- terrorism/extremism financing/content prohibited by law/provider;
-- weapons sales where prohibited;
-- drugs/controlled substances sales;
+- CSAM/minor sexual content;
+- non-consensual content;
+- extremist/terrorist financing or prohibited activity;
+- illegal weapons sales;
+- controlled-drug sales;
 - stolen goods;
-- financial scams;
-- fraudulent fundraising;
-- peer-to-peer money transmission disguised as creator payments;
-- IP infringement/pirated material;
-- doxxing/private-data sales;
-- malware/credential theft;
-- other categories prohibited by the payment provider.
+- fraud/scams;
+- pyramid/money-circulation abuse;
+- disguised money transmission;
+- phishing;
+- malware;
+- credential theft;
+- pirated/copyright-infringing distribution;
+- doxxing/private-data sale;
+- impersonation;
+- other provider-restricted categories.
 
-Create:
+Implement:
 
 - `/legal/acceptable-use`;
 - `/legal/creator-terms`;
-- `/legal/privacy` placeholder;
-- `/legal/terms` placeholder;
-- report-content flow;
-- admin report queue;
-- takedown/suspension actions;
-- basic appeal/contact path.
+- `/legal/terms`;
+- `/legal/privacy`;
+- content report flow;
+- creator report flow;
+- admin moderation queue;
+- takedown;
+- creator suspension;
+- appeal/contact path;
+- evidence/note history;
+- moderation audit log.
 
-These pages must clearly state prototype/draft legal status where appropriate; do not pretend owner has obtained legal review.
+Legal pages are draft/prototype until professional review and must say so internally/documentationally.
 
-Create `docs/LEGAL_AND_COMPLIANCE_OPEN_ITEMS.md` listing items requiring qualified legal/compliance review before production.
-
----
-
-# 8. USERS AND ROLES
-
-Implement explicit role/permission boundaries.
-
-Minimum roles:
-
-## 8.1 Visitor
-
-Can:
-
-- view marketing site;
-- view public creator pages;
-- view public posts/previews;
-- view public tier pricing;
-- register/login.
-
-## 8.2 Member / Fan
-
-Can:
-
-- maintain profile;
-- subscribe to creator tiers;
-- access content according to entitlements;
-- see own memberships;
-- cancel/manage membership according to provider capability;
-- view billing/payment status;
-- report content;
-- manage account/security.
-
-## 8.3 Creator
-
-Can:
-
-- apply for creator status;
-- complete payout setup;
-- pay ZeroFee SaaS plan;
-- configure creator profile;
-- create/edit/publish tiers;
-- create free/paid posts;
-- view subscribers;
-- view earnings/payment data available through the provider;
-- see payout status;
-- see account/compliance requirements;
-- handle relevant refunds/disputes through supported embedded/provider UI where appropriate;
-- see basic analytics;
-- manage settings.
-
-## 8.4 Admin / Owner
-
-Can:
-
-- review creator applications;
-- inspect creator account state;
-- suspend/reactivate;
-- manage reports;
-- manage fee profiles;
-- manage SaaS plan configuration;
-- inspect webhook events;
-- inspect audit events;
-- manage platform feature flags;
-- manage mock/Stripe capability visibility;
-- see high-level platform metrics;
-- manually grant/revoke test entitlements with audit reason;
-- NEVER be given a UI that exposes raw secret keys.
-
-Use RBAC/authorization middleware/server checks. UI hiding is not authorization.
+Create `docs/LEGAL_AND_COMPLIANCE_OPEN_ITEMS.md`.
 
 ---
 
-# 9. CORE USER JOURNEYS
+# 18. DSA / NOTICE-AND-ACTION / COPYRIGHT READINESS
 
-The prototype is not complete until the following journeys work end to end.
+Because ZeroFee can host user-generated creator content, implement platform safety architecture suitable for later legal review.
 
-## Journey A — Creator starts from zero
+At minimum:
 
-1. Visitor lands on ZeroFee.
-2. Understands 0% platform transaction fee + flat monthly plan.
-3. Uses savings/pricing calculator.
-4. Creates account.
-5. Chooses `Become a creator`.
-6. Completes creator application.
-7. Submits.
-8. Admin reviews.
-9. Admin approves.
-10. Creator receives in-app status update.
-11. Creator enters `Set up payouts`.
-12. Completes mock or real embedded Stripe Connect onboarding.
-13. System confirms readiness based on provider state.
-14. Creator activates ZeroFee $50/month plan in mock/test/live mode.
-15. Creator sets public profile.
-16. Creator creates first membership tier.
-17. Defaults to Target Net pricing mode.
-18. Creator enters desired net.
-19. Pricing Engine recommends final public price.
-20. Creator previews exactly what buyer will see.
-21. Creator publishes tier/page.
-22. Creator creates paid content.
-23. Public page becomes ready for memberships.
+- report illegal content;
+- report copyright infringement;
+- report impersonation;
+- report fraud/scam;
+- report unsafe/prohibited content;
+- structured report reason;
+- reporter contact optional/required according to flow;
+- moderation decision;
+- creator notice;
+- appeal path;
+- status tracking;
+- audit log;
+- retention policy placeholder.
 
-## Journey B — Fan subscribes
+Do not call the feature “DSA compliant” without legal review.
 
-1. Fan visits public creator page.
-2. Sees final membership price from the beginning.
-3. Understands benefits.
-4. Signs in/registers.
-5. Starts checkout.
-6. Payment provider handles payment.
-7. Browser success redirect alone does not grant access.
-8. Webhook/provider event confirms subscription.
-9. Membership entitlement becomes active.
-10. Fan can immediately access members-only content.
-11. Fan sees membership in own dashboard.
-
-## Journey C — Creator pricing decision
-
-1. Creator creates tier.
-2. Selects Simple Price or Target Net.
-3. Target Net is recommended/default.
-4. Creator enters target net.
-5. System calculates retail price using active profile.
-6. UI displays calculation summary.
-7. Creator can adjust target until retail price looks attractive.
-8. Creator publishes.
-9. Public side shows final retail price only.
-
-## Journey D — Admin rejects creator
-
-1. Application submitted.
-2. Admin sees review queue.
-3. Admin rejects with reason.
-4. Audit event written.
-5. Creator cannot activate payouts/sales.
-6. Creator sees appropriate status and owner-configured reapply/contact path.
-
-## Journey E — Additional information required
-
-1. Admin marks `NEEDS_INFORMATION` and enters request.
-2. Creator sees request.
-3. Creator responds/updates allowed fields.
-4. Resubmits.
-5. State returns to review.
-6. History is preserved.
-
-## Journey F — Provider requires more KYC
-
-1. Connected account previously existed.
-2. Stripe/mock provider reports outstanding requirement.
-3. ZeroFee creator dashboard shows actionable status.
-4. `Complete verification` opens embedded onboarding/update flow.
-5. Payments are enabled/disabled based on provider truth, not a local guessed flag.
-
-## Journey G — Failed creator SaaS payment
-
-1. Creator's $50 ZeroFee subscription becomes past due.
-2. Creator sees billing warning.
-3. Grace period is applied according to config.
-4. After grace period, account becomes SaaS-suspended.
-5. Existing data is preserved.
-6. New monetization activity follows the documented suspension policy.
-7. Restoring billing restores entitlement safely.
-
-## Journey H — Refund/dispute simulation
-
-1. Admin/test harness creates simulated refund/dispute provider event.
-2. Event is idempotently processed.
-3. Creator/member views show changed payment status.
-4. Membership entitlement follows documented policy.
-5. ZeroFee does not invent a platform reimbursement.
+Document EU DSA/copyright/DMCA-style open obligations by jurisdiction in the legal checklist.
 
 ---
 
-# 10. MARKETING SITE
+# 19. USER ROLES AND AUTHORIZATION
 
-Create a polished public marketing site.
+Roles:
 
-Required sections/pages:
+## Visitor
 
-- Homepage;
-- How it works;
-- Pricing;
-- Creator fee/savings calculator;
-- Safety/compliance summary;
-- FAQ;
-- Sign up/Login.
+- marketing;
+- public creator pages;
+- public posts/previews;
+- signup/login.
 
-## 10.1 Homepage narrative
+## Member/Fan
 
-The homepage must explain, in under one screen:
+- profile/security;
+- memberships;
+- checkout;
+- self-service billing actions;
+- paid content access by entitlement;
+- comments where enabled;
+- support/refund request;
+- content/creator reports;
+- data export/account deletion request architecture.
 
-- typical percentage-based platforms become more expensive as creators grow;
-- ZeroFee charges a flat creator SaaS subscription;
-- ZeroFee takes 0% platform fee from creator membership sales;
-- payment processing still exists;
-- creator can set a desired net target and ZeroFee helps calculate retail pricing.
+## Creator
 
-Avoid attacking named competitors with unsupported numerical claims.
+- creator application;
+- payout setup;
+- ZeroFee SaaS billing;
+- profile;
+- tiers/prices;
+- posts/downloads;
+- member management;
+- earnings;
+- payouts/provider status;
+- tax center;
+- integrations;
+- migration;
+- broadcasts/notifications within quota;
+- refunds/disputes where provider permits;
+- data export;
+- API/webhooks where plan permits.
 
-The calculator may use a configurable competitor percentage as an example.
+## Admin/Owner
 
-Example:
+- applications;
+- creators;
+- moderation;
+- plans;
+- fee profiles;
+- country capability registry;
+- merchant/tax config;
+- provider capabilities;
+- webhook events;
+- audit logs;
+- support escalations;
+- platform metrics;
+- feature flags;
+- mock/test controls;
+- manual entitlement overrides with reason.
 
-`Monthly creator revenue: $5,000`
+RBAC must be enforced server-side.
 
-`Example 10% platform fee: $500`
-
-`ZeroFee flat subscription: $50`
-
-`Difference: $450/month`
-
-Clearly label assumptions.
-
-## 10.2 Calculator
-
-Build a real interactive calculator with:
-
-- monthly revenue;
-- competitor platform percentage;
-- competitor flat fee optional;
-- ZeroFee monthly plan price;
-- monthly savings;
-- annual savings;
-- break-even revenue.
-
-Break-even for percentage-only competitor should be correctly calculated.
-
-Do not confuse payment-processing fees with platform fees in this calculator unless the user explicitly enables a payment-processing comparison.
-
----
-
-# 11. DESIGN / UX DIRECTION
-
-ZeroFee should look like a credible modern financial/creator SaaS, not a generic AI-generated dashboard.
-
-## 11.1 Visual direction
-
-Aim for:
-
-- premium minimalism;
-- high typography quality;
-- confident spacing;
-- strong numerical hierarchy;
-- restrained use of cards;
-- no unnecessary glassmorphism;
-- no noisy gradients everywhere;
-- no giant empty hero sections;
-- excellent mobile behavior;
-- financial information that is calm and legible;
-- clear status colors and labels, but never color-only meaning.
-
-Create a lightweight ZeroFee design system:
-
-- typography scale;
-- spacing scale;
-- semantic colors/tokens;
-- radii;
-- shadows;
-- form patterns;
-- status badge patterns;
-- data table patterns;
-- empty states;
-- skeleton/loading states;
-- error/success banners;
-- mobile bottom/sheet patterns where useful.
-
-The brand must feel original. Do not clone Patreon, Stripe, OnlyFans, Substack, Raycast, Linear or another named product pixel-for-pixel.
-
-## 11.2 Mobile first-quality
-
-Every core journey must be deliberately designed for mobile, not merely responsive afterthought CSS.
-
-Test at minimum:
-
-- 390px-ish phone viewport;
-- tablet;
-- standard laptop;
-- large desktop.
-
-Creator onboarding, payout setup and tier pricing must be especially usable on mobile.
+Hiding navigation is not authorization.
 
 ---
 
-# 12. INFORMATION ARCHITECTURE
+# 20. AUTHENTICATION AND SECURITY
 
-## Public
+Implement real authentication.
 
-- `/`
-- `/pricing`
-- `/how-it-works`
-- `/safety`
-- `/faq`
-- `/login`
-- `/signup`
-- `/c/[creatorSlug]`
-- `/c/[creatorSlug]/posts/[postSlug]`
-- `/legal/terms`
-- `/legal/privacy`
-- `/legal/creator-terms`
-- `/legal/acceptable-use`
+Minimum:
 
-## Member application
+- email/password or another secure first-party flow;
+- secure password hashing;
+- email normalization;
+- secure session cookies;
+- session invalidation;
+- login/registration rate limits;
+- password reset;
+- email verification architecture and functioning mock-email flow;
+- CSRF protection appropriate to framework;
+- safe auth errors;
+- server-side authorization;
+- no secrets in client bundle.
 
-- `/app`
-- `/app/memberships`
-- `/app/account`
-- `/app/security`
+Admin seed account only in dev/test.
 
-## Creator application
+Security review must cover:
 
-- `/creator`
-- `/creator/apply`
-- `/creator/application-status`
-- `/creator/onboarding`
-- `/creator/profile`
-- `/creator/tiers`
-- `/creator/tiers/new`
-- `/creator/tiers/[id]`
-- `/creator/content`
-- `/creator/content/new`
-- `/creator/members`
-- `/creator/earnings`
-- `/creator/payouts`
-- `/creator/billing`
-- `/creator/settings`
+- IDOR;
+- role escalation;
+- CSRF;
+- XSS/rich text;
+- SQL injection;
+- SSRF;
+- upload validation;
+- oversized files;
+- path traversal;
+- open redirects;
+- webhook spoofing/replay;
+- race conditions;
+- rate limiting;
+- cookie flags;
+- secret leakage;
+- sensitive-log leakage;
+- payout/KYC metadata access;
+- API-key abuse;
+- integration OAuth token storage if implemented.
 
-## Admin
-
-- `/admin`
-- `/admin/applications`
-- `/admin/applications/[id]`
-- `/admin/creators`
-- `/admin/creators/[id]`
-- `/admin/reports`
-- `/admin/fee-profiles`
-- `/admin/plans`
-- `/admin/webhooks`
-- `/admin/audit`
-- `/admin/settings`
-
-Exact paths can change if implementation reasons justify it, but all capabilities must remain present.
+Create `docs/SECURITY.md` with threat model, trust boundaries, known limitations and production hardening backlog.
 
 ---
 
-# 13. CREATOR DASHBOARD
-
-The creator dashboard must not be a vanity screen.
-
-Show real prototype-domain data:
-
-- public page status;
-- application/compliance status;
-- payout verification status;
-- ZeroFee SaaS billing status;
-- active members;
-- monthly recurring creator membership revenue estimate;
-- recent successful membership payments;
-- recent membership changes;
-- next actions;
-- content performance basics;
-- pricing plan/tier summary.
-
-If data is unavailable in provider mode, show a correct empty/unavailable state rather than invented numbers.
-
-## 13.1 Earnings terminology
-
-Clearly distinguish:
-
-- gross member sales;
-- estimated processing;
-- creator target net;
-- actual provider-recorded net if available;
-- refunds/disputes;
-- ZeroFee SaaS fee.
-
-Never mix ZeroFee SaaS revenue with creator membership revenue.
-
----
-
-# 14. CREATOR PUBLIC PROFILE
+# 21. CREATOR PUBLIC PROFILE
 
 Creator can configure:
 
 - display name;
-- slug;
+- unique slug;
 - avatar;
-- cover/banner;
+- banner;
 - short bio;
-- full about section;
+- full about;
 - social links;
-- public category;
-- accent/theme selection from a constrained set;
+- category;
+- constrained visual theme/accent;
 - featured tier;
-- featured posts.
+- featured posts;
+- support/contact preference;
+- optional verified/approved indicator only if defined honestly.
 
-Public profile must show:
+Public page shows:
 
-- identity/branding;
-- creator description;
-- tier cards;
-- final public membership prices;
+- creator identity/branding;
+- about;
+- final public prices;
+- benefits;
 - free posts;
-- locked post previews;
-- subscriber CTA;
-- safety/report link.
+- locked previews;
+- join CTA;
+- legal recurring billing disclosure;
+- report creator/content link;
+- appropriate seller/support information.
 
-Do not show sensitive/legal creator identity information.
+Never expose legal/KYC private data.
 
 ---
 
-# 15. MEMBERSHIP TIERS
+# 22. MEMBERSHIP TIERS
 
-Tier model must support:
+Support:
 
 - name;
 - description;
-- benefits list;
-- active/inactive;
-- monthly billing initially;
-- annual billing architecture-ready;
-- currency;
-- pricing mode;
-- target net;
-- active public price version;
-- member count;
+- benefit list;
+- public/draft/archive state;
 - sort order;
-- optional capacity limit later;
-- draft/published/archived state.
+- monthly price;
+- annual price;
+- currency;
+- Simple Price or Target Net;
+- price versions;
+- member count;
+- gated content mapping;
+- optional trial;
+- coupons/discount eligibility;
+- migration/grandfathering status.
 
-For the first prototype, restrict complexity rather than implement every billing edge case.
+Do not implement unrestricted peer-to-peer donations disguised as memberships.
 
-Do not implement arbitrary donation/tip money transmission in prototype. Keep the core product to defined creator memberships and creator content.
+Core product is defined recurring creator membership and creator content/community access.
 
 ---
 
-# 16. CONTENT SYSTEM
-
-The prototype needs enough content capability to prove the membership product.
+# 23. CONTENT SYSTEM
 
 Post fields:
 
 - title;
 - slug;
 - excerpt;
-- content/body;
-- cover image optional;
-- visibility: public / all paid members / selected tiers;
+- body;
+- cover image;
+- attachments/downloads;
+- visibility: public / all paid / selected tiers;
 - draft/published/archived;
 - publish timestamp;
 - creator ownership.
 
-For heavy media:
+Support safe downloadable files with strict limits and storage abstraction.
 
-- do not build expensive custom video streaming infrastructure in Prompt 1;
-- allow safe image uploads with strict limits OR use a local/mock object-storage abstraction;
-- allow external video/embed link where safe;
-- document future video architecture separately.
+Do not build expensive proprietary video streaming/transcoding in Prompt 1.
 
-This is deliberate. The $50 flat-fee economics fail if prototype accidentally promises unlimited expensive video infrastructure.
+Support safe external video/embed providers or a media-provider abstraction.
 
-Create quota abstractions from day one for:
+Never cache private paid content publicly.
 
-- storage;
-- bandwidth where measurable;
-- email notifications;
-- AI usage if ever introduced;
-- team members later.
+Comments:
 
-Do not necessarily enforce every future quota yet, but the plan entitlement model must support them.
+- creator can enable/disable per post;
+- authenticated comments;
+- delete own comment;
+- creator moderation;
+- report comment;
+- admin moderation for abuse;
+- rate limits.
 
 ---
 
-# 17. MEMBER ENTITLEMENTS
+# 24. PWA / MOBILE WEB
 
-Do not authorize paid content based only on a UI flag.
+ZeroFee should deliberately avoid an initial native in-app-purchase trap.
 
-Implement server-side entitlement resolution.
+Build a high-quality mobile web product and installable PWA where practical.
 
-Inputs can include:
+Requirements:
+
+- web app manifest;
+- installability metadata;
+- responsive icon setup;
+- standalone display behavior where appropriate;
+- mobile navigation intentionally designed;
+- creator onboarding works on phone;
+- checkout handoff works on phone;
+- no assumption that iOS allows all PWA capabilities equally;
+- no offline caching of private paid content or sensitive financial pages;
+- service-worker strategy must avoid stale entitlement/payment state;
+- push-notification architecture can be documented/feature-flagged if not fully implemented.
+
+Do not build native iOS/Android apps in Prompt 1.
+
+---
+
+# 25. MEMBER SUBSCRIPTION LIFECYCLE
+
+A Patreon replacement needs more than “Subscribe”.
+
+Implement a real subscription lifecycle.
+
+Statuses:
+
+- PENDING_PAYMENT;
+- TRIALING;
+- ACTIVE;
+- PAST_DUE;
+- GRACE;
+- PAUSED if supported/configured;
+- CANCEL_AT_PERIOD_END;
+- CANCELLED;
+- EXPIRED;
+- REVOKED;
+- REFUNDED where relevant.
+
+Member actions:
+
+- subscribe;
+- view renewal date;
+- update payment method through provider-safe flow;
+- cancel immediately or at period end according to policy;
+- resume before period end where supported;
+- switch tier;
+- switch monthly/annual where supported;
+- see next price/effective date;
+- see invoice/receipt/history;
+- request support/refund;
+- rejoin after expiration.
+
+Creator actions:
+
+- view member;
+- grant/revoke non-billing test/admin comp entitlement where authorized;
+- refund through provider-supported flow;
+- cancel membership where policy permits;
+- view member lifecycle events;
+- never view raw card details.
+
+---
+
+# 26. FAILED-PAYMENT RECOVERY / DUNNING
+
+This is core revenue-retention functionality.
+
+Implement provider-driven failed-payment recovery.
+
+Flow:
+
+1. renewal fails;
+2. subscription becomes appropriate `PAST_DUE` state;
+3. member receives in-app/email notification;
+4. clear `Update payment method` action;
+5. creator sees member as payment-recovery, not simply churned;
+6. configurable grace period;
+7. provider retry events update status;
+8. successful retry restores/maintains entitlement;
+9. exhaustion transitions according to policy;
+10. no duplicate notifications on repeated webhook delivery.
+
+Admin/creator metrics:
+
+- failed renewals;
+- recovered renewals;
+- recovery rate;
+- involuntary churn.
+
+Do not invent card retry algorithms if Stripe Billing/processor already owns retry behavior. Map provider truth into ZeroFee domain.
+
+---
+
+# 27. CANCELLATION, PAUSE, TIER CHANGES AND PRORATION
+
+Implement predictable subscription-change policy.
+
+Support:
+
+- cancel at period end;
+- resume before effective cancellation;
+- cancellation reason collection;
+- optional feedback;
+- upgrade/downgrade;
+- clear effective date;
+- proration behavior configured centrally;
+- preview before change;
+- annual↔monthly transition rules;
+- grandfathered price protection;
+- optional pause architecture if provider supports it.
+
+Never silently charge a new amount without confirmation/provider-authorized subscription rules.
+
+---
+
+# 28. COUPONS, TRIALS AND PROMOTIONS
+
+Prototype must support creator promotions.
+
+Coupon fields:
+
+- code;
+- percentage or fixed discount;
+- applicable tiers;
+- monthly/annual applicability;
+- duration: once/repeating/forever where provider supports;
+- start/end date;
+- redemption limit;
+- per-user restriction;
+- active flag.
+
+Trials:
+
+- configurable duration;
+- tier eligibility;
+- one-trial-per-member/creator anti-abuse rule;
+- payment-method requirement configurable;
+- trial ending notifications;
+- conversion tracking.
+
+Pricing analytics must distinguish list price, discount and actual charged amount.
+
+---
+
+# 29. MEMBER ENTITLEMENTS
+
+Paid access is server-authoritative.
+
+Implement `EntitlementResolver`.
+
+Inputs:
 
 - user;
 - creator;
-- membership subscription;
+- membership;
 - tier;
 - subscription status;
-- content visibility requirements.
+- grace policy;
+- post/resource visibility;
+- optional manual comp entitlement.
 
 Output:
 
 - allowed/denied;
-- reason code.
+- reason code;
+- expiry/effective time where relevant.
 
-Statuses must account for:
+Test extensively.
 
-- active;
-- trial if later supported;
-- past due grace policy;
-- cancelled at period end;
-- expired;
-- refunded/revoked if policy says so.
-
-Unit-test entitlement logic thoroughly.
+Client UI flags never override server authorization.
 
 ---
 
-# 18. DATA MODEL
+# 30. MIGRATION FROM PATREON / OTHER PLATFORMS
 
-Use PostgreSQL from day one.
+Migration is a CORE acquisition feature because ZeroFee targets existing creators.
 
-Use migrations.
+Do not assume payment credentials can magically be transferred from Patreon.
 
-Do not store the entire business in one giant JSON field.
+Build a `Migration Center`.
 
-Recommended relational entities, adapting names to the chosen ORM:
+## 30.1 Import
 
-## Identity
+Support CSV import for creator/member data.
+
+Design import mapping for common fields such as:
+
+- member name;
+- email;
+- external member ID;
+- external tier;
+- membership status;
+- charge frequency;
+- pledge/subscription amount;
+- join date;
+- last charge date where available;
+- entitled/paid status;
+- notes/tag metadata if safely useful.
+
+Provide a Patreon preset based on currently exportable creator member data, while keeping a generic CSV mapper.
+
+Never scrape private Patreon data or bypass their access controls.
+
+## 30.2 Tier mapping
+
+Wizard:
+
+1. upload CSV;
+2. preview rows/errors;
+3. map external tiers to ZeroFee tiers;
+4. map monthly/annual frequency;
+5. choose price preservation/grandfathering strategy;
+6. import non-payment member records;
+7. generate migration campaign.
+
+## 30.3 Payment migration reality
+
+If an external processor and Stripe officially support secure payment-method/subscription migration, build an advanced provider-assisted path only when explicitly configured.
+
+Otherwise:
+
+- import member/contact/status data;
+- do NOT pretend cards/subscriptions migrated;
+- mark records `IMPORTED_NOT_CONVERTED`;
+- send/produce creator-controlled migration invite links;
+- member authorizes new ZeroFee/creator subscription themselves.
+
+Migration statuses:
+
+- IMPORTED;
+- INVITE_READY;
+- INVITED;
+- CLICKED;
+- NEW_SUBSCRIPTION_STARTED;
+- CONVERTED;
+- DECLINED/EXPIRED;
+- ERROR.
+
+## 30.4 Migration campaign
+
+Provide:
+
+- migration landing page;
+- personalized/tokenized invite link;
+- creator messaging templates;
+- optional migration discount/trial;
+- grandfathered ZeroFee price;
+- countdown/switch date;
+- conversion analytics;
+- unconverted-member list;
+- CSV export for follow-up.
+
+Do not send real email without creator authorization/provider setup.
+
+## 30.5 Migration dashboard
+
+Show:
+
+- imported members;
+- mapped tiers;
+- invited;
+- clicked;
+- converted;
+- conversion rate;
+- recovered MRR estimate;
+- errors.
+
+Create `docs/MIGRATION_ARCHITECTURE.md` describing what can/cannot be moved automatically.
+
+---
+
+# 31. CREATOR OWNERSHIP / ANTI-LOCK-IN
+
+ZeroFee's anti-greed philosophy must include data portability.
+
+Creators should be able to export their business data in machine-readable formats.
+
+Build creator export flow for data they are legally permitted to receive, including:
+
+- member list/contact data subject to privacy rules;
+- tiers/prices;
+- posts/content metadata;
+- subscription history metadata;
+- analytics summary;
+- migration data;
+- integration configuration metadata excluding secrets.
+
+Never export:
+
+- raw card data;
+- protected provider credentials;
+- Stripe secret data;
+- private admin moderation notes;
+- data the creator is not entitled to receive.
+
+Document portability and deletion/retention rules for future legal review.
+
+Marketing can later credibly say:
+
+> Your audience and data are not held hostage by ZeroFee.
+
+---
+
+# 32. SUPPORT RESPONSIBILITY SPLIT
+
+Fans will contact ZeroFee even when a creator is financially responsible for a sale.
+
+Build a structured Support Center that makes responsibility clear without abandoning users.
+
+Ticket categories:
+
+- cannot access membership/content;
+- payment failed;
+- billing question;
+- refund request;
+- creator did not provide promised benefit;
+- suspected fraud/scam;
+- content report;
+- account/security;
+- ZeroFee technical problem.
+
+Routing principles:
+
+### Creator-first service issues
+
+Examples:
+
+- promised content;
+- benefit fulfillment;
+- ordinary refund request;
+- creator-specific community access.
+
+Route to creator support workspace first where appropriate.
+
+### ZeroFee-first issues
+
+Examples:
+
+- platform bug;
+- login/security;
+- prohibited content;
+- fraud/scam escalation;
+- moderation;
+- payment integration malfunction;
+- privacy request.
+
+Admin escalation must exist.
+
+Never tell the fan “not our problem” merely because charge was on a connected account.
+
+Keep auditable ticket/event history.
+
+---
+
+# 33. REFUNDS AND DISPUTES
+
+Refunds and disputes are creator-side payment events in the intended direct-charge model.
+
+Prototype must support:
+
+- creator refund request/action through provider interface;
+- full refund;
+- partial refund architecture where supported;
+- membership access policy after refund;
+- dispute opened;
+- dispute evidence/status display where embedded/provider feature permits;
+- dispute won/lost;
+- creator notification;
+- admin visibility;
+- test-mode simulation.
+
+ZeroFee does not automatically reimburse creator from SaaS revenue.
+
+Do not promise ZeroFee chargeback insurance.
+
+Create clear member copy explaining who processes/refunds the membership payment according to actual architecture.
+
+---
+
+# 34. COMMUNITY INTEGRATIONS
+
+A competitive membership product should be able to deliver external community access.
+
+Build an integration framework with clean providers.
+
+Initial prototype targets:
+
+## Discord
+
+Architecture/functionality where credentials permit:
+
+- creator connects Discord server via OAuth/bot;
+- map ZeroFee tier → Discord role;
+- member links Discord identity;
+- active entitlement grants role;
+- cancellation/expiration revokes role;
+- retry/reconciliation job;
+- audit log;
+- manual resync;
+- no privilege beyond required bot permissions.
+
+If credentials are absent, implement deterministic mock Discord provider and real integration boundary.
+
+## Telegram
+
+Implement provider architecture and safe prototype flow for private community access where feasible:
+
+- creator connects bot/community;
+- member links Telegram identity;
+- entitlement-based invite/access state;
+- revoke/expire behavior subject to Telegram API capability;
+- mock provider if real credentials unavailable.
+
+## Generic outbound webhook
+
+Creator can configure a signed outbound webhook on membership lifecycle events, subject to plan entitlement.
+
+Security:
+
+- URL validation;
+- SSRF protection;
+- HMAC signing;
+- retry/backoff;
+- secret rotation;
+- event logs;
+- disable failing endpoint after policy threshold.
+
+---
+
+# 35. CREATOR API
+
+Implement a small, secure prototype creator API for higher plans.
+
+Use scoped API keys.
+
+Minimum safe endpoints can include:
+
+- current creator profile;
+- tiers;
+- member entitlement lookup;
+- membership events/list with pagination;
+- posts metadata if useful.
+
+Do not expose payment credentials or unrestricted PII.
+
+API key requirements:
+
+- hashed-at-rest key material where appropriate;
+- prefix/identifier;
+- scopes;
+- created/last-used/revoked dates;
+- one-time secret display;
+- rotation/revocation;
+- rate limits;
+- audit log.
+
+Document API in `docs/API.md`.
+
+---
+
+# 36. CREATOR BROADCASTS / MEMBER COMMUNICATION
+
+Implement a minimal but real creator communication system.
+
+Creator can target:
+
+- all active members;
+- a tier;
+- payment-recovery members;
+- imported migration members where consent/law permits;
+- free followers architecture if later added.
+
+For Prompt 1:
+
+- build message composer;
+- recipient preview/count;
+- in-app delivery;
+- email provider abstraction;
+- mock email provider;
+- quota enforcement;
+- unsubscribe/legal architecture for marketing email;
+- audit/logging;
+- no bulk send if provider not configured.
+
+Do not build a full Substack replacement editor.
+
+---
+
+# 37. CREATOR DASHBOARD
+
+Show real domain data, not vanity metrics.
+
+Required:
+
+- creator application/compliance status;
+- payout/KYC status;
+- ZeroFee SaaS plan/billing status;
+- active members;
+- new members;
+- cancellations;
+- failed payments;
+- recovered payments;
+- creator membership GMV;
+- estimated/actual processing where data exists;
+- refunds/disputes;
+- estimated/actual creator proceeds distinction;
+- upcoming renewals where available;
+- top tiers;
+- public page conversion basics;
+- migration progress;
+- integration health;
+- quota usage;
+- next required action.
+
+Never mix creator GMV with ZeroFee MRR.
+
+Test data must be clearly labeled.
+
+---
+
+# 38. ADMIN CONTROL PLANE
+
+Build a serious owner/admin system.
+
+## Dashboard
+
+- users;
+- creators by application state;
+- approved creators;
+- connected-account readiness;
+- SaaS subscriptions/MRR;
+- creator GMV separate from platform revenue;
+- active memberships;
+- failed payments/recovery;
+- open reports;
+- support escalations;
+- failed webhooks;
+- country availability overview;
+- tax/config warnings;
+- integration failures.
+
+## Creator applications
+
+Full review queue and history.
+
+## Creators
+
+- profile;
+- compliance;
+- payout readiness;
+- SaaS billing;
+- public page;
+- member/tier counts;
+- support/moderation history;
+- integration health;
+- audit history.
+
+## Plans
+
+CRUD/versioning for ZeroFee SaaS plans and quotas.
+
+## Fee profiles
+
+CRUD/versioning + calculator preview.
+
+## Countries
+
+Country capability registry UI.
+
+## Tax/merchant configuration
+
+Read/manage safe configuration flags, never raw secrets.
+
+## Webhooks
+
+Event inspector/replay.
+
+## Reports/moderation
+
+Queue, decision, notice, appeal state.
+
+## Support
+
+Escalation queue.
+
+## Audit
+
+Filter by actor/action/resource/date/creator.
+
+---
+
+# 39. AUDIT LOGGING
+
+Append-only application audit for critical actions:
+
+- creator application submit/change;
+- admin approve/reject/info request;
+- connected account linkage/readiness change;
+- country config change;
+- tax/merchant config change;
+- fee-profile change;
+- SaaS plan change;
+- tier price publish/change/migration;
+- refund;
+- integration connect/revoke;
+- API key create/revoke;
+- creator suspension;
+- moderation action;
+- support escalation;
+- webhook replay;
+- manual entitlement override.
+
+Fields:
+
+- actor/system;
+- action;
+- resource;
+- timestamp;
+- reason where required;
+- safe before/after metadata;
+- correlation ID.
+
+Never log secrets/raw card/KYC document data.
+
+---
+
+# 40. NOTIFICATIONS
+
+In-app notifications at minimum:
+
+- application submitted;
+- approved;
+- info requested;
+- rejected;
+- KYC action required;
+- payout ready/restricted;
+- SaaS payment failed;
+- SaaS grace/suspension;
+- new member;
+- failed renewal;
+- recovered renewal;
+- cancellation;
+- refund;
+- dispute;
+- integration failure;
+- migration milestone;
+- moderation/report decision.
+
+Email through provider abstraction where configured.
+
+No external SMTP dependency for core CI.
+
+---
+
+# 41. DATA MODEL
+
+Use PostgreSQL and real migrations.
+
+Do not model the entire product as opaque JSON.
+
+Recommended entities, adapting naming to ORM:
+
+## Identity/security
 
 - `User`
 - `Session`
-- `UserRole` / role mapping
+- `Role` / `UserRole`
 - `SecurityEvent`
+- `ApiKey`
 
-## Creator domain
+## Creator
 
 - `CreatorProfile`
 - `CreatorApplication`
-- `CreatorApplicationRevision` or history
+- `CreatorApplicationRevision`
 - `CreatorReviewNote`
 - `CreatorComplianceStatus`
 - `CreatorConnectedAccount`
 
-## Platform SaaS billing
+## Platform SaaS
 
 - `PlatformPlan`
+- `PlatformPlanVersion`
 - `PlatformSubscription`
 - `PlatformEntitlement`
+- `UsageCounter`
 
 ## Pricing
 
 - `PaymentFeeProfile`
+- `PaymentFeeProfileVersion`
 - `CreatorTier`
 - `TierPriceVersion`
+- `PricingCalculationSnapshot`
+- `Coupon`
 
-## Content
+## Tax/commerce
+
+- `CommerceResponsibilityProfile`
+- `CreatorTaxProfile`
+- `TaxRegistrationReference`
+- `TaxCalculationSnapshot`
+- `CountryCapability`
+
+## Content/community
 
 - `Post`
 - `PostTierAccess`
 - `MediaAsset`
+- `Comment`
+- `CommentReport`
 
 ## Fan memberships
 
 - `MembershipSubscription`
 - `MembershipPayment`
 - `MembershipEvent`
+- `ManualEntitlement`
 
-## Provider integration
+## Migration
 
-- `PaymentProviderEvent`
-- `WebhookEvent`
+- `MigrationProject`
+- `MigrationImportRow`
+- `MigrationTierMapping`
+- `MigrationInvite`
+- `MigrationConversion`
+
+## Integrations
+
+- `CreatorIntegration`
+- `IntegrationMapping`
+- `IntegrationSyncEvent`
+- `OutboundWebhookEndpoint`
+- `OutboundWebhookDelivery`
+
+## Provider/event
+
 - `ProviderCustomerReference`
-- appropriate external-id mappings
+- `WebhookEvent`
+- `PaymentProviderEvent`
 
-## Safety/admin
+## Safety/support/admin
 
 - `ContentReport`
 - `ModerationAction`
+- `SupportTicket`
+- `SupportMessage`
 - `AuditLog`
-- `AdminSetting`
+- `Notification`
 - `FeatureFlag`
+- `AdminSetting`
 
-Use appropriate unique constraints and foreign keys.
+Apply foreign keys, unique constraints, indexes and immutable/version semantics correctly.
 
-Important constraints:
+Important:
 
-- unique normalized email where appropriate;
+- unique normalized email;
 - unique creator slug;
-- unique provider event ID per provider/account scope;
-- immutable price version identity;
-- no membership can point to another creator's tier;
-- external provider IDs indexed;
-- audit records append-only at application level;
-- timestamps for creation/update;
-- soft-delete/archive only where product semantics need history.
+- provider event uniqueness scoped properly;
+- external IDs indexed;
+- tier cannot reference another creator's price;
+- membership cannot reference another creator's tier;
+- audit history preserved;
+- imports deduplicated;
+- API secrets not stored plaintext where avoidable.
 
 ---
 
-# 19. STATE MACHINES
+# 42. PROVIDER / DOMAIN SEPARATION
 
-Avoid random booleans such as:
+Required abstractions:
 
-`isApproved`, `isVerified`, `isPaid`, `isSuspended`, `isLive`
+- `CreatorPaymentsProvider`;
+- `PlatformBillingProvider`;
+- `TaxProvider`;
+- `MediaStorageProvider`;
+- `EmailProvider`;
+- `CommunityIntegrationProvider` where sensible.
 
-when the state is actually multi-step.
+Do not let Stripe raw statuses/objects leak throughout UI components.
 
-Create explicit state machines/enums and transition services for:
-
-## Creator application
-
-DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED / NEEDS_INFORMATION / REJECTED
-
-with resubmission path.
-
-## Connected account readiness
-
-NOT_CREATED → ONBOARDING_REQUIRED → PENDING_REVIEW → RESTRICTED/NEEDS_INFO → READY → SUSPENDED/DISABLED as provider state dictates.
-
-## ZeroFee SaaS billing
-
-NONE → TRIALING(optional) → ACTIVE → PAST_DUE → GRACE → SUSPENDED → CANCELLED.
-
-## Tier
-
-DRAFT → PUBLISHED → ARCHIVED.
-
-## Membership
-
-PENDING_PAYMENT → ACTIVE → PAST_DUE → CANCEL_AT_PERIOD_END → CANCELLED / EXPIRED / REVOKED.
-
-Map provider-specific statuses into ZeroFee domain statuses in one adapter layer.
-
-Do not spread raw Stripe status strings throughout React components.
+Map provider-specific data into domain statuses/services.
 
 ---
 
-# 20. TECHNICAL ARCHITECTURE
+# 43. TECHNICAL STACK
 
-The repository is empty. Establish a maintainable foundation without overengineering.
+Preferred initial stack unless repository state now provides a better established decision:
 
-Preferred shape for this prototype:
-
-- current stable **Next.js App Router** with TypeScript;
+- current stable Next.js App Router;
+- TypeScript;
 - PostgreSQL;
-- a mature TypeScript ORM with migrations;
+- mature TypeScript ORM + migrations;
+- pnpm;
 - Tailwind CSS;
-- accessible component primitives;
-- server-side domain/service layer;
-- route handlers/server actions only where appropriate;
-- Stripe official SDK;
-- Stripe embedded components when provider mode is Stripe;
-- Playwright for browser journeys;
-- unit/integration test runner appropriate to stack;
-- ESLint + formatting;
-- pnpm.
+- accessible UI primitives;
+- official Stripe SDK;
+- Stripe embedded Connect components where supported;
+- Playwright;
+- unit/integration test runner;
+- ESLint/formatting;
+- schema-based environment validation.
 
-You may choose exact current-stable versions at execution time. Lock versions in the repository.
+Do not choose experimental infrastructure merely because it is fashionable.
 
-Do not choose an experimental stack merely because it is new.
+A single full-stack app is acceptable and preferred over unnecessary monorepo complexity unless a real boundary requires otherwise.
 
-## 20.1 Suggested repository structure
-
-A single full-stack app is acceptable for Prompt 1, but keep boundaries clear.
-
-Suggested:
+Suggested structure:
 
 ```text
 /app
@@ -1278,1075 +1896,1014 @@ Suggested:
 /lib/payments
 /lib/platform-billing
 /lib/pricing
+/lib/tax
 /lib/compliance
 /lib/entitlements
+/lib/migration
+/lib/integrations
 /lib/security
 /lib/observability
-/prisma or /db
+/db or /prisma
 /tests
 /docs
 /scripts
 /prompts
 ```
 
-If you choose a workspace/monorepo, justify it in `docs/ARCHITECTURE.md`. Do not create monorepo complexity solely for appearance.
+Create `docs/ARCHITECTURE.md` documenting actual choices.
 
-## 20.2 Domain/provider separation
+---
 
-Required provider interfaces:
+# 44. ENVIRONMENT CONFIGURATION
 
-- `CreatorPaymentsProvider`;
-- `PlatformBillingProvider`;
-- `MediaStorageProvider` if uploads are implemented;
-- `NotificationProvider` if email is implemented.
+Create `.env.example` and runtime validation.
 
-The mock and Stripe providers must implement the same important domain contract.
-
-## 20.3 Environment configuration
-
-Create `.env.example` with all required values and comments, including:
+Include placeholders for:
 
 - app URL;
 - database URL;
 - auth/session secrets;
-- payment provider mode;
-- Stripe platform keys/test values placeholders;
-- Stripe webhook secret placeholders;
-- Connect configuration placeholders where required;
-- platform plan price configuration if not DB-seeded;
-- storage provider config;
-- email/mock notification config;
-- admin seed credentials only as development variables, never hardcoded production credentials.
+- creator payment provider;
+- Stripe keys;
+- webhook secrets;
+- Connect configuration;
+- platform Billing configuration;
+- Tax provider;
+- storage provider;
+- email provider;
+- Discord credentials;
+- Telegram credentials where implemented;
+- admin development seed credentials;
+- feature flags.
 
-Validate environment configuration at startup.
+No real secret committed.
 
-Fail safely for missing production-required settings.
-
----
-
-# 21. AUTHENTICATION AND ACCOUNT SECURITY
-
-Implement real authentication, not a front-end mock.
-
-Minimum prototype requirements:
-
-- email/password or another secure first-party auth flow;
-- strong password hashing;
-- secure session cookies;
-- session invalidation;
-- login rate limiting;
-- registration rate limiting;
-- password reset architecture or clearly documented prototype limitation;
-- email verification architecture-ready;
-- CSRF protection appropriate to chosen framework patterns;
-- authorization on all protected mutations;
-- no secrets in client bundle.
-
-Seed an admin account only for development/test mode.
-
-Document development credentials in README or seed output, not production source code.
-
-Do not expose whether arbitrary email addresses are registered through avoidable auth error differences.
+Production mode must fail safely if required payment/security configuration is missing.
 
 ---
 
-# 22. SECURITY REQUIREMENTS
-
-Treat this as a financial-adjacent platform even though Prompt 1 is a prototype.
-
-At minimum review/fix:
-
-- IDOR across creator/member/admin resources;
-- role escalation;
-- CSRF;
-- XSS in creator posts/bios;
-- unsafe rich text;
-- SQL injection via ORM/raw queries;
-- SSRF through external URL previews if any;
-- unsafe file upload types;
-- oversized uploads;
-- path traversal;
-- webhook spoofing;
-- replay/idempotency;
-- race conditions in subscription state changes;
-- open redirects;
-- sensitive logs;
-- missing rate limits;
-- insecure cookies;
-- authorization gaps in server actions;
-- accidental exposure of Stripe secrets;
-- accidental exposure of KYC/private application data.
-
-Use security headers where appropriate.
-
-Create `docs/SECURITY.md` with:
-
-- threat summary;
-- protected assets;
-- trust boundaries;
-- known prototype limitations;
-- production hardening backlog.
-
----
-
-# 23. PRIVACY / PII MINIMIZATION
-
-ZeroFee should not become a duplicate KYC vault.
+# 45. PRIVACY / PII MINIMIZATION
 
 Principles:
 
-- Stripe collects identity documents directly where possible;
-- store only references/statuses required to operate the product;
-- do not store raw bank credentials;
-- do not log private application fields unnecessarily;
-- redact sensitive provider payloads in normal logs;
-- admin UI follows least privilege;
-- user-facing deletion/export requirements are documented for future production work.
+- Stripe/provider collects identity docs directly;
+- ZeroFee stores only required references/statuses;
+- no raw bank credentials;
+- redact provider payloads/logs;
+- creator application PII visible only to authorized roles;
+- migration data protected;
+- member exports governed by permissions;
+- no leaking email lists publicly;
+- account deletion/export architecture;
+- data retention documented for legal review.
 
 ---
 
-# 24. ADMIN CONTROL PLANE
+# 46. PUBLIC MARKETING SITE
 
-Build a serious owner/admin area.
+Required pages:
 
-## Dashboard
+- `/`;
+- `/pricing`;
+- `/how-it-works`;
+- `/migration`;
+- `/safety`;
+- `/faq`;
+- auth pages;
+- legal pages.
 
-Show:
+Homepage must explain above the fold:
 
-- total users;
-- creators by application state;
-- approved creators;
-- connected-account readiness;
-- active ZeroFee SaaS subscriptions;
-- active fan memberships;
-- platform MRR estimate from creator SaaS;
-- creator GMV as a separate metric if available;
-- open reports;
-- failed webhook events.
+- 0% ZeroFee platform transaction fee;
+- flat SaaS plans;
+- payment processing still exists;
+- target-net pricing assistance;
+- creator owns audience/data;
+- existing creators can migrate.
 
-Always label test/mock financial values.
-
-## Applications
-
-Functional review queue with filters and states.
-
-## Creators
-
-View:
-
-- creator profile;
-- compliance state;
-- Stripe/mock account state;
-- SaaS billing state;
-- public page state;
-- tier/member counts;
-- moderation history;
-- audit history.
-
-## Fee profiles
-
-Admin can:
-
-- create/edit profile;
-- set currency/region/payment method;
-- set percentage/fixed/buffer values;
-- activate/deactivate;
-- preview calculations;
-- see which tiers use a profile/version.
-
-Do not retroactively alter historical price calculations without versioning/audit.
-
-## Webhooks
-
-Show:
-
-- provider;
-- external event ID;
-- type;
-- connected account scope;
-- received time;
-- processed time;
-- status;
-- attempts;
-- safe error;
-- replay internal processing button.
-
-## Audit
-
-Filter by:
-
-- actor;
-- action;
-- resource;
-- date;
-- creator.
+Do not make unsupported competitor claims.
 
 ---
 
-# 25. AUDIT LOGGING
+# 47. SAVINGS / BREAK-EVEN CALCULATOR
 
-Audit important mutations:
+Build an interactive calculator.
 
-- creator submits application;
-- admin approval/rejection/info request;
-- connected-account linkage changes;
-- creator tier publish/price change;
-- plan entitlement override;
-- creator suspension;
-- report resolution;
-- webhook replay;
-- admin setting change;
-- fee profile change.
+Inputs:
 
-Audit fields:
+- monthly creator revenue;
+- competitor platform percentage;
+- competitor flat monthly fee optional;
+- selected ZeroFee SaaS plan;
+- optional active member count;
+- optional processing comparison toggle.
 
-- actor user ID or system;
-- action;
-- resource type/id;
-- timestamp;
-- reason where needed;
-- minimal before/after metadata where safe;
-- request correlation ID where available.
+Outputs:
 
-Do not log secrets or full sensitive provider payloads.
+- competitor platform fee;
+- ZeroFee SaaS cost;
+- monthly difference;
+- annual difference;
+- break-even revenue;
+- plan eligibility by active-member allowance.
+
+Payment processing must be excluded from the simple platform-fee comparison unless explicitly enabled, because both products may incur it differently.
+
+Label every assumption.
 
 ---
 
-# 26. NOTIFICATIONS
+# 48. INFORMATION ARCHITECTURE
 
-At minimum implement in-app notification records for:
+Suggested routes:
 
-- application submitted;
-- application approved;
-- additional information requested;
+## Public
+
+- `/`
+- `/pricing`
+- `/how-it-works`
+- `/migration`
+- `/safety`
+- `/faq`
+- `/login`
+- `/signup`
+- `/c/[creatorSlug]`
+- `/c/[creatorSlug]/posts/[postSlug]`
+- legal pages
+
+## Member
+
+- `/app`
+- `/app/memberships`
+- `/app/billing`
+- `/app/support`
+- `/app/account`
+- `/app/security`
+
+## Creator
+
+- `/creator`
+- `/creator/apply`
+- `/creator/application-status`
+- `/creator/onboarding`
+- `/creator/profile`
+- `/creator/tiers`
+- `/creator/content`
+- `/creator/members`
+- `/creator/earnings`
+- `/creator/payouts`
+- `/creator/tax`
+- `/creator/billing`
+- `/creator/migration`
+- `/creator/integrations`
+- `/creator/broadcasts`
+- `/creator/api`
+- `/creator/support`
+- `/creator/settings`
+- `/creator/export`
+
+## Admin
+
+- `/admin`
+- `/admin/applications`
+- `/admin/creators`
+- `/admin/reports`
+- `/admin/support`
+- `/admin/plans`
+- `/admin/fee-profiles`
+- `/admin/countries`
+- `/admin/commerce-tax`
+- `/admin/webhooks`
+- `/admin/audit`
+- `/admin/settings`
+
+Exact paths may differ but capabilities must remain.
+
+---
+
+# 49. DESIGN SYSTEM / VISUAL QUALITY
+
+ZeroFee must feel like a credible premium financial/creator SaaS.
+
+Avoid generic AI-dashboard appearance.
+
+Aim for:
+
+- excellent typography;
+- strong numerical hierarchy;
+- calm finance UI;
+- confident whitespace;
+- restrained cards;
+- minimal decorative gradients;
+- original brand;
+- strong mobile layout;
+- accessible statuses;
+- polished forms;
+- fast creator onboarding.
+
+Create tokens for:
+
+- typography;
+- spacing;
+- semantic colors;
+- radius;
+- shadow;
+- borders;
+- statuses;
+- forms;
+- tables;
+- empty/loading/error/success states.
+
+Do not clone another product pixel-for-pixel.
+
+---
+
+# 50. ERROR / EMPTY / LOADING / PERMISSION STATES
+
+Intentionally implement at minimum:
+
+- no creator application;
+- review pending;
+- needs info;
 - rejected;
-- payout verification action required;
-- payout setup complete;
-- creator SaaS payment problem;
-- new membership;
-- membership cancelled;
-- content report action if relevant.
-
-Email may use a mock provider in Prompt 1.
-
-Do not block core flows on external SMTP credentials.
-
----
-
-# 27. ERROR, LOADING, EMPTY AND PERMISSION STATES
-
-Every important page must have intentional states.
-
-Especially:
-
-- no application yet;
-- application under review;
-- creator rejected;
-- provider not configured;
-- Stripe test mode;
-- Connect onboarding incomplete;
-- KYC additional information required;
-- payouts disabled;
-- ZeroFee SaaS billing past due;
-- no tiers;
-- no posts;
-- no members;
-- failed checkout;
-- pending webhook confirmation;
+- unsupported country;
+- country waitlist;
+- provider unavailable;
+- Stripe/test mode;
+- KYC incomplete;
+- payout restricted;
+- tax not configured;
+- SaaS billing failed;
+- no tier;
+- no post;
+- no member;
+- failed payment;
+- payment confirmation pending webhook;
+- dunning;
 - membership expired;
-- unauthorized page;
-- admin-only action forbidden;
-- network/server failure.
+- migration empty/in progress/error;
+- Discord/Telegram disconnected;
+- API key none/revoked;
+- support empty;
+- unauthorized;
+- generic server/network failure.
 
-Do not render blank dashboards.
-
----
-
-# 28. CHECKOUT / FAN PAYMENT EXPERIENCE
-
-The buyer must know the real final recurring price before initiating checkout.
-
-Required public tier card information:
-
-- tier name;
-- final public price;
-- currency;
-- `/month`;
-- benefits;
-- cancellation language;
-- creator identity.
-
-Do not reveal internal target-net amount unless creator explicitly chooses to display it later.
-
-Do not display a late-added ZeroFee transaction fee.
-
-If tax must later be added depending on jurisdiction, keep it clearly separate from the “no hidden ZeroFee fee” promise and document that production tax architecture is pending.
-
-For Prompt 1, tax can be disabled/mock, but code architecture must not imply taxes never exist.
+No blank dashboards.
 
 ---
 
-# 29. REFUNDS, DISPUTES AND NEGATIVE BALANCES
+# 51. ACCESSIBILITY
 
-The prototype must model these conceptually even if full Stripe production handling is not yet available.
+Target WCAG 2.1 AA fundamentals.
 
-Principles:
+- keyboard support;
+- visible focus;
+- semantic headings;
+- form labels;
+- linked errors;
+- accessible dialogs;
+- contrast;
+- no color-only status;
+- reduced motion;
+- sensible tab order;
+- mobile text sizing.
 
-- refunds/disputes relate to the creator-side direct charge;
-- ZeroFee must not automatically reimburse the creator from platform SaaS revenue;
-- membership entitlement policy after a refund/dispute must be deterministic;
-- creator sees the event;
-- admin can see provider event;
-- loss-liability configuration must reflect actual Stripe contract/configuration before production.
-
-Create deterministic mock events for:
-
-- full refund;
-- dispute opened;
-- dispute won;
-- dispute lost;
-- connected account negative/restricted state.
+Automated accessibility checks on representative pages where tooling supports.
 
 ---
 
-# 30. UNIT ECONOMICS PROTECTION FOR ZEROFEE
+# 52. PERFORMANCE
 
-Flat-fee SaaS fails if infrastructure usage is truly unlimited.
-
-Prompt 1 must therefore create the foundations for sustainable unit economics.
-
-The default $50 creator plan should have configurable quotas/entitlements for expensive resources.
-
-Examples:
-
-- media storage;
-- outbound email volume;
-- advanced analytics retention;
-- team seats;
-- API usage later;
-- AI generation later;
-- heavy video bandwidth later.
-
-Do not necessarily bill overages in Prompt 1.
-
-But:
-
-- create quota definitions;
-- show usage where implemented;
-- reject absurd oversized uploads;
-- document cost-sensitive resources.
-
-Create `docs/UNIT_ECONOMICS.md` containing:
-
-- ZeroFee $50 creator SaaS revenue model;
-- variable payment processing is not a ZeroFee subsidy;
-- creator GMV is separate from ZeroFee SaaS revenue;
-- major future variable-cost risks;
-- why unlimited video/email/AI cannot be promised blindly;
-- recommended metrics to track.
+- paginate lists;
+- indexes;
+- query limits;
+- avoid N+1;
+- optimize images;
+- do not ship provider payloads to client;
+- minimize unnecessary client components;
+- public creator pages fast;
+- paid entitlement checks correct and efficient;
+- migration import processed safely/batched;
+- webhook processing resilient;
+- integration sync retry bounded.
 
 ---
 
-# 31. ANALYTICS
+# 53. OBSERVABILITY
 
-Prototype analytics should be useful and honest.
+Structured server logs:
 
-Creator:
+- correlation ID;
+- severity;
+- route/service;
+- safe creator/user/resource refs;
+- provider event ID;
+- redaction.
 
-- active members;
-- new memberships over time;
-- cancellations;
-- gross membership sales;
-- estimated processing cost where calculable;
-- creator actual/estimated net distinction;
-- top tier by members;
-- public page conversion funnel where measurable.
+Health endpoint:
 
-Admin:
+- application;
+- DB;
+- provider configuration status without secrets;
+- background/integration health summary where appropriate.
 
-- creator SaaS MRR;
-- approved creators;
-- active creators;
-- creator membership GMV;
-- active member subscriptions;
-- application conversion;
-- failed payment/webhook counts.
-
-Mock/test data must be clearly labeled.
-
-Do not fabricate analytics that cannot be derived from stored events.
+Error boundaries and safe user-facing errors.
 
 ---
 
-# 32. SEED / DEMO EXPERIENCE
+# 54. SEED / DEMO DATA
 
-A reviewer should be able to run the app and immediately understand ZeroFee.
+Create deterministic seed data demonstrating the platform immediately.
 
-Provide deterministic seed data:
+At minimum:
 
-- 1 admin;
-- 1 approved/fully onboarded creator;
-- 1 creator awaiting review;
-- 1 creator needing information;
-- 1 normal fan/member;
-- 2-3 membership tiers demonstrating pricing modes;
-- several public and paid posts;
+- admin;
+- approved/payment-ready creator;
+- creator under review;
+- creator needing information;
+- unsupported-country creator/waitlist example;
+- fan/member;
+- several tiers using both pricing modes;
+- monthly and annual price;
+- public/paid posts;
 - active membership;
+- past-due membership;
+- recovered membership;
 - cancelled membership;
-- simulated failed webhook;
-- sample fee profiles;
-- sample notifications/reports.
+- coupon;
+- trial;
+- migration project with imported/converted members;
+- sample Discord mock integration;
+- sample failed webhook;
+- sample report;
+- sample support ticket;
+- fee profiles;
+- country capabilities;
+- tax mock state.
 
 Never seed production secrets.
 
-Provide a reset script for development demo data.
+Provide reset script.
 
 ---
 
-# 33. TESTING
+# 55. CORE USER JOURNEYS — MUST WORK END TO END
 
-The prototype is not complete because it builds.
+## Journey A — new creator
 
-## 33.1 Unit tests
+1. landing;
+2. calculator;
+3. signup;
+4. country eligibility;
+5. creator application;
+6. submit;
+7. admin review;
+8. approval;
+9. payout onboarding;
+10. provider readiness;
+11. select/pay ZeroFee SaaS plan;
+12. configure profile;
+13. create tier;
+14. Target Net pricing;
+15. preview public price;
+16. monthly/annual setup;
+17. publish;
+18. create gated content;
+19. public launch-ready page.
+
+## Journey B — fan subscription
+
+1. public page;
+2. sees final recurring price;
+3. signup/login;
+4. checkout;
+5. sees applicable tax before final confirmation where configured;
+6. payment succeeds;
+7. webhook activates;
+8. paid content unlocks;
+9. membership dashboard shows renewal/cancellation controls.
+
+## Journey C — failed renewal
+
+1. renewal event fails;
+2. PAST_DUE;
+3. member notified;
+4. update-payment action;
+5. creator sees recovery status;
+6. retry succeeds;
+7. entitlement recovers correctly;
+8. analytics count recovery.
+
+## Journey D — cancellation and tier change
+
+- cancel at period end;
+- resume;
+- upgrade/downgrade preview;
+- effective date/proration visible;
+- no accidental duplicate subscription.
+
+## Journey E — creator migration from Patreon-like CSV
+
+1. upload;
+2. validate;
+3. map tiers;
+4. import members;
+5. no fake payment-token import;
+6. generate invite campaign;
+7. fan accepts new subscription;
+8. conversion tracked.
+
+## Journey F — creator rejected
+
+- review;
+- reject reason;
+- cannot activate payouts;
+- clear creator status.
+
+## Journey G — KYC additional info
+
+- provider requirement appears;
+- embedded onboarding resumes;
+- readiness updates from provider.
+
+## Journey H — SaaS billing fails
+
+- past due;
+- grace;
+- suspension;
+- recovery;
+- data preserved.
+
+## Journey I — refund/dispute
+
+- event/action;
+- membership state policy;
+- creator/admin/member visibility;
+- no ZeroFee subsidy.
+
+## Journey J — Discord entitlement
+
+- creator connects/mock-connects;
+- maps tier→role;
+- fan links identity;
+- active membership grants;
+- cancellation revokes;
+- reconciliation works.
+
+## Journey K — support escalation
+
+- fan opens creator-service refund/content ticket;
+- creator receives;
+- unresolved/fraud issue escalates to ZeroFee;
+- audit/history preserved.
+
+## Journey L — creator export
+
+- creator requests export;
+- gets authorized data;
+- no secrets/raw payment data leaked.
+
+---
+
+# 56. TESTING
+
+Building successfully is not completion.
+
+## Unit tests
 
 At minimum:
 
-- Pricing Engine;
-- gross-up calculation;
-- rounding;
-- entitlement resolution;
-- creator application transitions;
-- SaaS billing transitions;
-- membership transitions;
+- PricingEngine/gross-up;
+- currency rounding;
+- fee-profile versioning;
+- entitlement resolver;
+- application state machine;
+- provider readiness mapping;
+- platform billing state machine;
+- fan subscription state machine;
+- dunning state transitions;
+- coupon/trial eligibility;
+- price grandfathering;
+- migration row mapping/deduplication;
+- country eligibility;
+- tax provider mapping;
 - authorization helpers;
-- webhook idempotency service.
+- webhook idempotency;
+- outbound webhook signing.
 
-## 33.2 Integration tests
+## Integration tests
 
-At minimum:
+- application/review;
+- rejected creator blocked;
+- payout onboarding gate;
+- country waitlist gate;
+- SaaS entitlement;
+- price version creation;
+- Target Net calculation snapshot;
+- monthly/annual subscription;
+- provider event activation;
+- duplicate event idempotency;
+- failed renewal/recovery;
+- cancellation;
+- refund;
+- paid-content denial/allow;
+- Patreon-style CSV import;
+- integration entitlement sync;
+- support routing;
+- admin-only actions;
+- cross-creator IDOR denial.
 
-- creator application submit/review;
-- approved creator can start onboarding;
-- rejected creator cannot activate sales;
-- fee profile calculation persists correct price version;
-- webhook activates membership;
-- duplicate webhook does not duplicate membership/payment;
-- refund changes state according to policy;
-- SaaS suspension changes creator entitlement;
-- admin-only actions reject ordinary users;
-- creator cannot mutate another creator's resources;
-- member cannot access unentitled paid post.
+## Playwright/E2E
 
-## 33.3 Browser/E2E journeys
+Automate representative full journeys A–L in deterministic mock mode.
 
-Use Playwright or equivalent.
+At minimum test phone and desktop viewport for critical paths.
 
-Automate at minimum:
-
-1. Visitor → creator signup/application.
-2. Admin → approve application.
-3. Creator → mock payout onboarding.
-4. Creator → activate mock ZeroFee plan.
-5. Creator → create Target Net tier.
-6. Pricing preview calculation.
-7. Creator → publish tier.
-8. Fan → subscribe in mock payment mode.
-9. Webhook/event → entitlement active.
-10. Fan → open paid post.
-11. Fan without membership → denied/upsell.
-12. Creator SaaS past-due/grace/suspended state.
-13. Admin → report moderation action.
-14. Duplicate webhook idempotency.
-15. Mobile viewport core journey smoke.
-
-No core test should depend on live Stripe/network credentials.
-
-If Stripe test credentials are available, add an optional live-test-mode integration suite separated from deterministic CI.
+Optional Stripe test-mode integration suite must be separate from deterministic CI.
 
 ---
 
-# 34. ACCESSIBILITY
+# 57. SECURITY / ABUSE TESTS
 
-Target WCAG 2.1 AA-quality fundamentals.
+Explicitly test/fix:
 
-Ensure:
-
-- keyboard navigation;
-- visible focus;
-- semantic headings;
-- labeled controls;
-- form errors associated with fields;
-- accessible dialogs/sheets;
-- contrast;
-- no color-only statuses;
-- reduced-motion respect;
-- meaningful button names;
-- sensible tab order;
-- responsive text sizing.
-
-Run automated accessibility checks on representative pages if tooling allows.
-
----
-
-# 35. PERFORMANCE
-
-Avoid prototype architecture that becomes unusable at moderate scale.
-
-Requirements:
-
-- paginate admin/member lists;
-- server-side query limits;
-- indexed common query fields;
-- optimized images;
-- no giant provider payloads shipped to client;
-- avoid unnecessary client components;
-- cache only where correctness allows;
-- public creator page should be fast;
-- no N+1 query patterns in obvious list pages.
-
-Document any intentional prototype shortcuts.
+- creator A reading creator B members;
+- creator A refunding creator B payment;
+- fan accessing paid post without entitlement;
+- user changing creator application status client-side;
+- migration CSV injection/oversize/malformed input;
+- webhook replay;
+- fake signature;
+- support attachment abuse if attachments exist;
+- malicious rich text;
+- API key leakage/reuse after revoke;
+- outbound webhook SSRF;
+- unsafe redirect;
+- upload MIME spoofing;
+- plan quota bypass;
+- admin routes as normal user.
 
 ---
 
-# 36. OBSERVABILITY
+# 58. SCREENSHOT / VISUAL QA
 
-Implement structured server logging with:
+Run the real seeded application and capture actual rendered screenshots for at minimum:
 
-- request/correlation ID;
-- severity;
-- route/service context;
-- provider event ID when relevant;
-- redaction.
+- homepage desktop/mobile;
+- pricing/calculator;
+- creator country eligibility;
+- creator application;
+- admin review;
+- payout onboarding/mock state;
+- creator dashboard;
+- Target Net tier builder;
+- public creator page;
+- member checkout pre-confirmation;
+- member dashboard;
+- paid content locked/unlocked;
+- migration wizard/dashboard;
+- tax center;
+- integrations;
+- admin dashboard;
+- support center.
 
-Add a basic health endpoint checking:
+Inspect each manually for:
 
-- application process;
-- database connectivity;
-- provider configuration state, without exposing secrets.
+- clipping;
+- overflow;
+- dead space;
+- spacing;
+- hierarchy;
+- typography;
+- button clarity;
+- financial readability;
+- form usability;
+- phone usability;
+- status meaning.
 
-Create clear error boundaries/pages.
-
----
-
-# 37. README
-
-Create a professional root `README.md` covering:
-
-- what ZeroFee is;
-- product promise;
-- architecture overview;
-- local setup;
-- required software;
-- environment variables;
-- database setup;
-- migrations;
-- seed;
-- mock provider mode;
-- optional Stripe test setup;
-- running tests;
-- screenshots or link to screenshot artifacts;
-- current prototype limitations;
-- explicit warning that production Stripe content-platform approval is required.
-
-A new developer should be able to start the prototype from the README alone.
+Fix findings before completion.
 
 ---
 
-# 38. REQUIRED DOCUMENTATION
+# 59. REQUIRED DOCUMENTATION
 
-Create at minimum:
+Create/update at minimum:
 
 - `README.md`
 - `docs/ARCHITECTURE.md`
 - `docs/PAYMENTS_ARCHITECTURE.md`
 - `docs/PRICING_ENGINE.md`
 - `docs/STRIPE_APPROVAL_READINESS.md`
+- `docs/COUNTRY_AND_CURRENCY_STRATEGY.md`
+- `docs/MERCHANT_AND_TAX_RESPONSIBILITY.md`
+- `docs/TAX_ARCHITECTURE.md`
+- `docs/MIGRATION_ARCHITECTURE.md`
+- `docs/INTEGRATIONS.md`
+- `docs/API.md`
 - `docs/LEGAL_AND_COMPLIANCE_OPEN_ITEMS.md`
 - `docs/SECURITY.md`
 - `docs/UNIT_ECONOMICS.md`
 - `docs/PROTOTYPE_LIMITATIONS.md`
 - `docs/OWNER_NEXT_STEPS.md`
 
-Documentation must describe what was actually implemented, not a fantasy future state.
+Docs must describe reality, not aspirational fiction.
 
 ---
 
-# 39. IMPLEMENTATION PHASES — EXECUTE IN THIS ORDER
+# 60. IMPLEMENTATION ORDER
 
-Do not create separate planning-only commits and stop. Execute all phases.
+Execute the whole prompt in this sequence.
 
-## PHASE 0 — Repository audit and bootstrap
+## Phase 0 — audit/bootstrap
 
-1. Fetch/sync current default branch safely.
-2. Record HEAD and working tree state.
-3. Read every existing repository file before overwriting architectural decisions.
-4. Preserve this prompt.
-5. Bootstrap app/tooling.
-6. Configure lint/typecheck/test/build.
-7. Add environment validation.
-8. Add PostgreSQL migration foundation.
-9. Create initial README setup instructions.
-10. Confirm clean local startup.
+- sync repository;
+- read all files;
+- preserve current prompt;
+- bootstrap app;
+- DB/migrations;
+- lint/typecheck/test/build;
+- env validation;
+- README startup.
 
-### Acceptance
+## Phase 1 — identity/domain foundation
 
-- application starts;
-- database connects;
-- migration runs;
-- lint/typecheck/build test harness executes.
+- auth;
+- RBAC;
+- DB schema;
+- state machines;
+- audit;
+- seed framework.
 
-## PHASE 1 — Domain model and auth
+## Phase 2 — design/marketing shell
 
-1. Implement user/session auth.
-2. Implement roles/authorization.
-3. Add creator application model.
-4. Add plan/subscription models.
-5. Add pricing/fee-profile/tier models.
-6. Add member subscription/content models.
-7. Add provider-event/audit/report models.
-8. Add seed framework.
+- design system;
+- marketing;
+- pricing;
+- savings calculator;
+- member/creator/admin shells;
+- PWA foundation.
 
-### Acceptance
+## Phase 3 — creator eligibility/compliance
 
-- migrations work on clean database;
-- seeded users can authenticate;
-- role boundaries tested.
-
-## PHASE 2 — Marketing + app shell + design system
-
-1. Establish tokens/components/layout.
-2. Build homepage.
-3. Build pricing.
-4. Build fee/savings calculator.
-5. Build authenticated member/creator/admin shells.
-6. Build responsive navigation.
-7. Add polished empty/loading/error states.
-
-### Acceptance
-
-- mobile and desktop visually coherent;
-- calculator mathematically correct;
-- no dead primary CTA.
-
-## PHASE 3 — Creator application/compliance
-
-1. Creator application form.
-2. Draft persistence.
-3. Submission.
-4. Admin review queue.
-5. Needs-info loop.
-6. Approval/rejection.
-7. Audit.
-8. Status notifications.
-9. Legal/safety draft pages.
-
-### Acceptance
-
-- full review state machine works;
-- creator cannot self-approve;
-- admin actions audited.
-
-## PHASE 4 — Payments provider abstraction + mock Connect
-
-1. Implement provider interfaces.
-2. Implement deterministic mock connected account.
-3. Embedded-like local onboarding simulation.
-4. Requirement states.
-5. Readiness state mapping.
-6. Mock payout/payment views.
-7. Webhook/provider event infrastructure.
-
-### Acceptance
-
-- approved creator can become payment-ready in mock mode;
-- non-approved creator cannot;
-- provider events idempotent.
-
-## PHASE 5 — Stripe Connect implementation boundary
-
-1. Add Stripe SDK/provider.
-2. Server-side connected-account creation/retrieval.
-3. Current recommended embedded onboarding integration.
-4. Account state sync.
-5. Connect webhook handling.
-6. Direct-charge subscription path architecture.
-7. Embedded payment/payout/account components where supported and credentials available.
-8. Clear test-mode badge.
-9. Safe failure when platform Stripe configuration is incomplete.
-
-### Acceptance
-
-- code compiles without Stripe credentials in mock mode;
-- Stripe provider path is real, not pseudocode;
-- provider-specific code does not leak across domain UI.
-
-If live Connect platform configuration is not available, do not fake actual Stripe readiness. Mark the live integration as `configuration required` while preserving functional mock mode.
-
-## PHASE 6 — ZeroFee creator SaaS billing
-
-1. Platform $50 plan config.
-2. Mock platform billing.
-3. Stripe platform-billing adapter where feasible.
-4. Billing state machine.
-5. Grace/suspension behavior.
-6. Creator billing page.
-7. Admin plan/config page.
-
-### Acceptance
-
-- creator entitlement depends on billing state;
-- billing suspension is reversible;
-- creator data is preserved.
-
-## PHASE 7 — Pricing Engine
-
-1. Implement fee profiles.
-2. Implement money math.
-3. Implement Simple Price.
-4. Implement Target Net.
-5. Implement creator pricing UI.
-6. Implement recommended retail price.
-7. Implement price versioning.
-8. Implement admin fee-profile editor/preview.
-9. Unit-test all calculations.
-
-### Acceptance
-
-- public price is deterministic;
-- no float money bugs;
-- historical price versions are preserved;
-- no surprise buyer fee is appended at checkout.
-
-## PHASE 8 — Creator profile, tiers, content
-
-1. Profile editor.
-2. Public creator page.
-3. Tier create/edit/publish.
-4. Content create/edit/publish.
-5. Tier content restrictions.
-6. Media restrictions/abstraction.
-7. Mobile QA.
-
-### Acceptance
-
-- creator can go from approved to published membership page;
-- public visitor can clearly understand offer and final price.
-
-## PHASE 9 — Fan memberships and entitlements
-
-1. Member dashboard.
-2. Checkout initiation.
-3. Mock success/failure.
-4. Stripe direct-charge checkout/subscription integration boundary.
-5. Webhook-authoritative activation.
-6. Entitlement engine.
-7. Cancellation lifecycle.
-8. Paid content gating.
-9. Refund/dispute simulation.
-
-### Acceptance
-
-- no access before authoritative activation;
-- duplicate events do not duplicate subscription;
-- unauthorized users cannot bypass content gate.
-
-## PHASE 10 — Creator earnings + admin operations
-
-1. Earnings dashboard.
-2. Subscriber list.
-3. Payment/event history.
-4. Payout/account state.
-5. Admin creator detail.
-6. Admin reports/moderation.
-7. Admin webhook inspector/replay.
-8. Admin audit viewer.
-
-### Acceptance
-
-- financial concepts are separated correctly;
-- mock/test values are labeled;
-- no sensitive payload leakage.
-
-## PHASE 11 — Hardening and quality
-
-1. Security review.
-2. IDOR tests.
-3. Rate limits.
-4. CSP/security headers as practical.
-5. XSS/rich-text review.
-6. Upload validation.
-7. Webhook verification.
-8. Accessibility QA.
-9. Performance QA.
-10. Responsive QA.
-11. Clean database migration test.
-12. E2E suite.
-13. Build/lint/typecheck/tests all green.
-
-## PHASE 12 — Visual QA and final documentation
-
-1. Run application with seed data.
-2. Capture actual rendered screenshots of core pages at desktop and mobile widths.
-3. Inspect visually, not just technically.
-4. Fix spacing, overflow, typography, hierarchy, broken states and awkward mobile layouts.
-5. Update all required documentation to match reality.
-6. Write owner next-step checklist.
-7. Ensure working tree is clean.
-8. Commit and push all work.
-
----
-
-# 40. REQUIRED SCREENSHOT QA
-
-Capture actual rendered screenshots for at least:
-
-- homepage desktop;
-- homepage mobile;
-- pricing/calculator;
+- countries;
 - creator application;
-- admin application review;
-- creator onboarding/payment readiness;
-- creator dashboard;
-- tier pricing builder Target Net mode;
-- public creator page;
-- fan membership dashboard;
-- paid content locked/unlocked;
-- admin dashboard.
+- admin review;
+- safety/legal/reporting.
 
-Store screenshots under a sensible development artifact folder that is not accidentally deployed if inappropriate.
+## Phase 4 — payment providers
 
-Inspect each screenshot for:
+- provider interfaces;
+- mock Connect;
+- mock billing;
+- Stripe integration boundary;
+- embedded onboarding;
+- webhook infrastructure;
+- provider readiness.
 
-- clipping;
-- horizontal scroll;
-- broken cards;
-- inconsistent spacing;
-- giant blank areas;
-- typography collisions;
-- status clarity;
-- CTA hierarchy;
-- financial number readability;
-- mobile usability.
+## Phase 5 — SaaS plans/unit-economics controls
 
-Do not call UI complete before this pass.
+- multiple plans;
+- quotas/entitlements;
+- billing state machine;
+- grace/suspension;
+- admin plan UI.
 
----
+## Phase 6 — pricing/tax commerce layer
 
-# 41. ACCEPTANCE CRITERIA — PRODUCT
+- fee profiles;
+- PricingEngine;
+- price versioning;
+- country capability;
+- merchant responsibility profile;
+- TaxProvider/mock;
+- Stripe Tax integration boundary;
+- receipts/invoice architecture.
 
-The Prompt 1 prototype is complete only if ALL of the following are true:
+## Phase 7 — creator product
 
-1. A visitor can understand ZeroFee's business model.
-2. Marketing never falsely claims payment processing is free.
-3. Creator can register.
-4. Creator can submit application.
-5. Admin can approve/reject/request information.
-6. Approval history is preserved.
-7. Approved creator can run payout onboarding in mock mode.
-8. Stripe Connect production integration boundary exists and uses current supported architecture.
-9. Creator does not need a normal stripe.com workflow in the intended embedded UX.
-10. Creator can activate ZeroFee flat SaaS plan in mock mode.
-11. Plan price is configurable and defaults to $50/month.
-12. Creator can create a tier.
-13. Creator can choose Simple Price.
-14. Creator can choose Target Net.
-15. Target Net is default/recommended.
-16. Pricing Engine correctly gross-ups configured payment costs.
-17. Public price is shown before checkout.
-18. No surprise ZeroFee fee appears only at checkout.
-19. Creator can publish public profile.
-20. Creator can publish gated content.
-21. Fan can create account.
-22. Fan can subscribe in mock mode.
-23. Webhook/provider event activates membership.
-24. Browser redirect alone cannot activate membership.
-25. Paid content is server-gated.
-26. User cannot access another creator's admin resources.
-27. Creator cannot self-approve.
-28. Member cannot access admin.
-29. Creator dashboard separates gross, estimated/actual processing and platform SaaS.
-30. Refund/dispute states exist.
-31. ZeroFee does not subsidize creator processing in the initial business model.
-32. Admin can manage fee profiles.
-33. Admin can inspect failed webhook events.
-34. Audit log covers critical mutations.
-35. Content reporting/moderation flow exists.
-36. Acceptable-use/legal placeholders exist.
-37. Stripe content-platform approval requirement is documented.
-38. App works well on phone and desktop.
-39. Tests cover critical domain rules.
-40. Clean install/setup instructions work.
-41. Build, lint, typecheck and test are green.
-42. Final docs describe actual state accurately.
+- profile;
+- tiers;
+- monthly/annual;
+- coupons/trials;
+- posts/downloads/comments;
+- public page.
 
----
+## Phase 8 — fan membership lifecycle
 
-# 42. ACCEPTANCE CRITERIA — PAYMENT ECONOMICS
+- checkout;
+- webhook activation;
+- entitlements;
+- member dashboard;
+- dunning;
+- payment update;
+- cancellation/resume;
+- tier changes;
+- refunds/disputes.
 
-The following invariants are especially important:
+## Phase 9 — migration
 
-## Invariant 1
+- CSV importer;
+- Patreon preset;
+- mapper;
+- migration invites;
+- conversion dashboard;
+- grandfathering.
 
-ZeroFee's creator SaaS subscription revenue and creator fan-payment GMV are separate ledgers/concepts.
+## Phase 10 — integrations/API/communication
 
-## Invariant 2
+- Discord provider/mock/real boundary;
+- Telegram provider boundary;
+- outbound webhooks;
+- API keys/endpoints;
+- broadcasts/in-app/email mock.
 
-ZeroFee does not pay creator processing fees from its $50 subscription in the initial model.
+## Phase 11 — support/admin/analytics/export
 
-## Invariant 3
+- support routing/escalation;
+- admin operations;
+- creator analytics;
+- platform analytics;
+- creator data export.
 
-Target Net mode gross-ups the customer-facing price based on an explicit fee profile.
+## Phase 12 — hardening
 
-## Invariant 4
+- security;
+- accessibility;
+- performance;
+- observability;
+- clean migration test;
+- all tests;
+- E2E.
 
-The buyer sees the final customer-facing price before checkout.
+## Phase 13 — visual QA/docs/finalization
 
-## Invariant 5
+- run seed;
+- screenshots;
+- inspect/fix;
+- documentation;
+- owner checklist;
+- clean working tree;
+- commit/push.
 
-ZeroFee's platform transaction fee for creator membership sales is zero in the initial product.
-
-## Invariant 6
-
-Payment processing is never marketed as zero.
-
-## Invariant 7
-
-Refunds/disputes are not silently insured by ZeroFee.
-
-## Invariant 8
-
-Direct charges are the intended production fan-payment architecture, subject to Stripe approval/configuration.
-
-## Invariant 9
-
-No internal custodial creator wallet is built in Prompt 1.
-
-## Invariant 10
-
-Exact Stripe fees and loss-liability status are configuration/provider facts, not marketing assumptions.
+Do not stop between phases unless execution is technically impossible. If one external credential-dependent feature cannot be fully live-tested, finish everything else and clearly isolate that limitation.
 
 ---
 
-# 43. PROTOTYPE SCOPE EXCLUSIONS
+# 61. PRODUCT ACCEPTANCE CRITERIA
 
-Do NOT waste Prompt 1 time implementing these unless required by a dependency:
+Prompt 1 is complete only when all materially applicable items below are true.
+
+1. Visitor understands 0% ZeroFee platform transaction fee vs real payment processing.
+2. Marketing avoids false universal competitor percentages.
+3. Multiple SaaS plans exist and are configurable.
+4. Plans scale by usage/members/features, never GMV percentage.
+5. Country eligibility is first-class.
+6. Unsupported country cannot fake onboarding.
+7. Creator can apply.
+8. Admin can review/approve/reject/request info.
+9. Approval history/audit exists.
+10. Creator can complete mock payout onboarding fully inside ZeroFee UX.
+11. Real Stripe embedded onboarding boundary is implemented.
+12. Creator does not need routine stripe.com dashboard use in intended UX.
+13. Direct charges are intended fan-payment architecture.
+14. ZeroFee has no custodial creator wallet.
+15. Platform SaaS billing is separate.
+16. Creator can use Simple Price.
+17. Creator can use Target Net.
+18. Target Net defaults/recommends final public price.
+19. Buyer sees final ZeroFee retail price before checkout.
+20. No surprise ZeroFee processing surcharge appears at final step.
+21. Payment fee profiles are versioned/configurable.
+22. Tax is modeled separately from processing.
+23. Tax provider abstraction exists.
+24. Tax/merchant responsibility is explicit, not guessed.
+25. Creator tax center exists.
+26. Public checkout can represent applicable tax honestly.
+27. Creator can create monthly and annual memberships.
+28. Price changes preserve historical/grandfathered subscriptions.
+29. Coupon/trial support exists.
+30. Fan payment is webhook-authoritative.
+31. Paid content is server-gated.
+32. Failed payment/dunning works.
+33. Payment recovery works.
+34. Cancellation/resume works.
+35. Tier change policy works.
+36. Refund/dispute states work in mock mode.
+37. Migration Center exists.
+38. Patreon-style CSV import works.
+39. Migration does not pretend card data moved when it did not.
+40. Migration conversion is measurable.
+41. Creator data export exists.
+42. Support routing creator-vs-ZeroFee exists.
+43. Moderation/reporting exists.
+44. Discord entitlement integration works in mock mode and has real boundary.
+45. Generic outbound webhook is signed/retriable.
+46. Creator API uses scoped keys.
+47. Broadcast system respects quotas/provider availability.
+48. Creator dashboard has meaningful financial/lifecycle metrics.
+49. Admin has country/tax/plan/fee/provider controls.
+50. Webhook inspector/replay exists.
+51. Audit log covers critical actions.
+52. PWA/mobile experience is intentional.
+53. Private paid content is not cached publicly/offline.
+54. Core flows work on phone and desktop.
+55. Security tests cover IDOR/webhook/upload/API/integration risks.
+56. Build/lint/typecheck/tests are green.
+57. E2E journeys pass in deterministic mock mode.
+58. Screenshot QA is completed and findings fixed.
+59. Required docs match implementation.
+60. Live Stripe/content-platform/tax/legal gaps are clearly identified rather than faked.
+
+---
+
+# 62. PAYMENT ECONOMICS INVARIANTS
+
+These invariants must never be violated accidentally:
+
+1. `creator_gmv != zerofee_revenue`.
+2. ZeroFee takes `0%` platform transaction fee from creator membership sales in the initial model.
+3. ZeroFee does not subsidize variable creator processing from flat SaaS revenue.
+4. Target Net works by recommending/grossing-up public retail pricing according to configured assumptions.
+5. Buyer sees the approved public price before checkout.
+6. Processor fees remain real.
+7. Tax is separate from processor gross-up.
+8. Refunds/disputes are not silently insured by ZeroFee.
+9. Direct charge is preferred creator-payment topology subject to provider approval.
+10. No custodial internal creator wallet.
+11. SaaS plan upgrades are usage/feature based, not revenue-share disguised as tiers.
+12. Exact Stripe fee/liability/tax configuration is provider truth, not marketing truth.
+
+---
+
+# 63. PRODUCT SCOPE EXCLUSIONS FOR PROMPT 1
+
+Even though Prompt 1 is the complete initial prototype, avoid unrelated scope explosion.
+
+Do NOT build unless a dependency requires it:
 
 - native iOS app;
 - native Android app;
-- Apple/Google in-app purchases;
-- custom video transcoding/streaming infrastructure;
-- crypto payments;
+- Apple/Google IAP;
 - adult-content payment workaround;
+- crypto payments;
 - crowdfunding;
-- peer-to-peer tips/transfers unrelated to defined creator products;
-- affiliate marketplace;
-- creator-to-creator transfers;
-- complex tax filing automation;
-- multi-processor smart routing;
-- multi-language localization beyond architecture readiness;
-- AI content generation;
+- peer-to-peer cash transfer;
+- creator-to-creator money transfer;
+- proprietary large-scale video transcoding/CDN;
+- full Substack-style newsletter product;
 - livestreaming;
-- Discord integration;
-- mobile push notification infrastructure;
-- custom domain provisioning;
-- teams/agencies;
-- complex annual/proration migration logic;
-- production card-network optimization.
+- AI content generation;
+- full payroll/accounting system;
+- homemade global tax-law engine;
+- custom banking/wallet ledger;
+- affiliate marketplace;
+- arbitrary ecommerce marketplace;
+- complex multi-PSP routing.
 
-Keep extension points clean, but do not dilute the prototype.
-
----
-
-# 44. OWNER NEXT STEPS DOCUMENT
-
-At completion create `docs/OWNER_NEXT_STEPS.md` as a checkbox-driven sequence for the owner.
-
-It must include, in dependency order:
-
-1. Review product wording.
-2. Choose final ZeroFee company/legal entity.
-3. Engage payments/legal counsel as needed.
-4. Finalize acceptable-use/creator terms/privacy/consumer terms.
-5. Contact Stripe for content-creation platform approval.
-6. Confirm desired Connect architecture with Stripe.
-7. Confirm Stripe handles pricing availability for target platform country.
-8. Confirm direct charges.
-9. Confirm connected-account loss-liability model.
-10. Confirm target creator countries.
-11. Confirm supported currencies.
-12. Confirm payment methods.
-13. Decide whether Target Net uses conservative buffer and by how much.
-14. Decide public launch $50 plan price.
-15. Decide quotas.
-16. Configure Stripe platform account.
-17. Configure Connect.
-18. Configure real webhook endpoints.
-19. Configure platform Billing.
-20. Configure production database.
-21. Configure storage/email/observability.
-22. Run test-mode end-to-end payments.
-23. Run refund/dispute tests.
-24. Complete security review.
-25. Complete privacy/compliance review.
-26. Run closed beta with a few creators.
-27. Recalculate unit economics from beta data.
-28. Only then consider public launch.
-
-The checklist must clearly distinguish coding tasks from external/legal/business tasks.
+Build extension points where appropriate, but protect prototype coherence.
 
 ---
 
-# 45. FINAL COMPLETION REPORT
+# 64. OWNER NEXT STEPS CHECKLIST
 
-When execution is complete, do NOT respond with a vague “done.”
+At completion generate `docs/OWNER_NEXT_STEPS.md` with checkboxes in dependency order.
 
-Produce a concise but concrete completion report containing:
+Must include at minimum:
+
+## Company/legal
+
+- choose final operating entity/jurisdiction;
+- professional legal review;
+- Terms;
+- Creator Agreement;
+- Acceptable Use;
+- Privacy;
+- DSA/copyright/reporting process;
+- consumer recurring billing requirements;
+- refund policy.
+
+## Stripe/payment
+
+- contact Stripe before public launch;
+- obtain content-platform approval;
+- confirm Connect account architecture;
+- confirm embedded onboarding;
+- confirm direct charges;
+- confirm “Stripe handles pricing for users” availability;
+- confirm loss-liability model;
+- confirm statement descriptor/receipts;
+- confirm target creator countries;
+- confirm supported currencies/payment methods;
+- configure platform Billing;
+- configure webhooks;
+- run test-mode charges/refunds/disputes;
+- verify live capability before enabling LIVE.
+
+## Tax
+
+- confirm who is seller/merchant by jurisdiction;
+- confirm ZeroFee SaaS VAT/sales tax;
+- confirm creator-to-fan VAT/GST/sales-tax responsibility;
+- confirm Stripe Tax usage;
+- confirm registrations;
+- confirm invoicing/receipts;
+- confirm US 1099/W-8/W-9 or equivalent responsibilities;
+- confirm record retention;
+- tax advisor signoff.
+
+## Commercial
+
+- finalize plan prices;
+- finalize member/usage quotas;
+- choose initial countries;
+- choose initial creator verticals;
+- choose Target Net safety buffer;
+- choose migration incentives;
+- choose refund/support policy.
+
+## Infrastructure
+
+- production DB;
+- domain/DNS;
+- storage;
+- email;
+- observability;
+- backups;
+- secrets;
+- rate limits/WAF/CDN as appropriate;
+- security review;
+- disaster recovery.
+
+## Beta
+
+- onboard small closed group of real creators;
+- test KYC;
+- test real tax calculation where applicable;
+- test member migration;
+- test failed payments;
+- test refunds/disputes;
+- measure support load;
+- measure infrastructure cost;
+- measure conversion/churn;
+- recalculate unit economics;
+- only then public launch.
+
+---
+
+# 65. REQUIRED FINAL COMPLETION REPORT
+
+When Prompt 1 execution is finished, report:
 
 - final commit SHA;
 - branch;
-- whether pushed successfully;
-- current repository clean/dirty state;
-- major implemented product flows;
+- push status;
+- clean/dirty working tree;
+- implemented major flows;
 - architecture summary;
-- database/migration status;
-- test counts and results;
-- lint/typecheck/build results;
+- migration/schema status;
+- test counts/results;
+- lint/typecheck/build;
 - E2E results;
-- screenshots captured;
-- mock-provider status;
-- Stripe integration status;
-- exactly which live Stripe capabilities could not be verified because external approval/credentials were unavailable;
+- screenshot QA results;
+- mock provider status;
+- live Stripe integration status;
+- Stripe approval status;
+- country capability status;
+- tax provider/status;
+- external credential/approval gaps;
 - security findings fixed;
 - remaining prototype limitations;
-- link/path to `docs/OWNER_NEXT_STEPS.md`.
+- path to `docs/OWNER_NEXT_STEPS.md`.
 
-Do not claim live-payment production readiness unless live Connect, content-platform approval, account configuration, legal review and real payment testing have actually happened.
-
----
-
-# 46. DECISION PRINCIPLES WHEN SOMETHING IS AMBIGUOUS
-
-When this prompt does not specify a small implementation detail:
-
-1. Protect financial correctness first.
-2. Protect authorization/security second.
-3. Protect clear creator/buyer UX third.
-4. Prefer simple architecture over premature infrastructure.
-5. Prefer configuration over hardcoded commercial assumptions.
-6. Prefer provider abstractions over Stripe strings leaking everywhere.
-7. Prefer auditability for admin/compliance actions.
-8. Prefer preserving data/history over destructive shortcuts.
-9. Prefer clear `not configured` state over fake success.
-10. Never solve a UX issue by lying about money movement.
+Never say “production ready” unless external legal/payment/tax dependencies have actually been satisfied.
 
 ---
 
-# 47. CORE PRODUCT SENTENCE
+# 66. DECISION PRINCIPLES
 
-Keep this sentence in mind throughout implementation:
+When a detail is ambiguous:
 
-> **ZeroFee is a flat-fee creator membership SaaS where the creator controls the economics, ZeroFee takes 0% of creator sales, payment processing remains transparent and real, and the buyer sees the final price upfront.**
+1. Protect financial correctness.
+2. Protect authorization/security.
+3. Protect truthful tax/payment representation.
+4. Protect creator/buyer clarity.
+5. Prefer reversible configuration over hardcoded business assumptions.
+6. Prefer provider abstractions over Stripe-specific UI leakage.
+7. Preserve history/versioning.
+8. Preserve auditability.
+9. Prefer “not configured” over fake success.
+10. Never solve UX by lying about money movement.
+11. Never create revenue-share through the back door.
+12. Do not trap creator data inside ZeroFee.
+13. Do not assume global availability.
+14. Do not call legal/compliance work complete without professional verification.
 
-Everything in Prompt 1 should make that statement technically and visually credible.
+---
+
+# 67. CORE PRODUCT SENTENCE
+
+Keep this sentence as the implementation north star:
+
+> **ZeroFee is a flat-fee creator membership platform where creator revenue is not taxed by a percentage platform fee, creators can price toward the proceeds they want, buyers see the real price upfront, creators retain portability of their audience/data, and payment/tax/compliance realities are handled transparently rather than hidden.**
 
 EXECUTE THE ENTIRE SPECIFICATION.
