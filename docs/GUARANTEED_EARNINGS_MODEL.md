@@ -10,3 +10,10 @@ Outcomes:
 - `actual < target`: Guarantee Shortfall; visible financial incident.
 
 Unknown or stale routes cannot create Guaranteed Earnings quotes.
+
+## Persistence
+- Provider rules live in `provider_pricing_rules`.
+- Eligibility profiles live in `guarantee_eligibility_profiles`.
+- Every buyer quote is saved in `membership_price_quotes` with target, retail, tax, modeled provider cost, modeled creator proceeds, pricing rule version, eligibility profile version, full payment context snapshot, expiration and status.
+- Provider actuals are saved in `membership_payments` and `guarantee_reconciliations`.
+- Shortfalls create `guarantee_incidents` and pause the unsafe eligibility profile in deterministic test mode.

@@ -18,6 +18,24 @@ export function findRule(rules: ProviderPricingRule[], context: PaymentContext) 
   );
 }
 
+function findEligibleRoute(rules: ProviderPricingRule[], profiles: GuaranteeEligibilityProfile[], context: PaymentContext) {
+  for (const rule of rules) {
+    if (
+      rule.creatorAccountCountry === context.creatorAccountCountry &&
+      rule.issuerRegion === context.issuerRegion &&
+      rule.paymentMethodFamily === context.paymentMethodFamily &&
+      rule.cardClass === context.cardClass &&
+      rule.presentmentCurrency === context.presentmentCurrency &&
+      rule.settlementCurrency === context.settlementCurrency &&
+      isRuleCurrent(rule)
+    ) {
+      const profile = findEligibility(profiles, rule, context);
+      if (profile) return { rule, profile };
+    }
+  }
+  return null;
+}
+
 export function findEligibility(profiles: GuaranteeEligibilityProfile[], rule: ProviderPricingRule, context: PaymentContext) {
   return profiles.find(
     (profile) =>
@@ -70,10 +88,12 @@ export function solveGuaranteedRetailPrice(args: {
   creatorId: string;
   tierId: string;
 }): Quote {
-  const rule = findRule(args.rules, args.context);
-  if (!rule) throw new Error("No current provider pricing rule for this payment context");
-  const profile = findEligibility(args.profiles, rule, args.context);
-  if (!profile) throw new Error("Guaranteed Earnings is not eligible for this payment route");
+  const route = findEligibleRoute(args.rules, args.profiles, args.context);
+  if (!route) {
+    if (!findRule(args.rules, args.context)) throw new Error("No current provider pricing rule for this payment context");
+    throw new Error("Guaranteed Earnings is not eligible for this payment route");
+  }
+  const { rule, profile } = route;
   if (rule.feeConfidence === "UNKNOWN_OR_VARIABLE") throw new Error("Unknown provider fee cannot power Guaranteed Earnings");
 
   let low = args.target.amountMinor;

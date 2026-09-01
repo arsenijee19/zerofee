@@ -2,73 +2,74 @@
 
 ## Project Overview
 - ZeroFee is a creator membership SaaS prototype where creators choose target earnings and ZeroFee takes 0% of creator membership revenue.
-- The prototype demonstrates creator onboarding, mock Connect payout setup, SaaS billing separation, Guaranteed Earnings pricing, buyer checkout, reconciliation, content entitlement, migration, integrations, support, admin oversight, and visual QA.
-- Intended users are creators with meaningful recurring audience revenue, their members, and ZeroFee operators.
+- Intended users are creators, their paying members, and ZeroFee platform operators.
+- The product demonstrates creator onboarding, country eligibility, compliance review, connected-account setup, SaaS billing separation, Guaranteed Earnings pricing, member checkout, provider reconciliation, content entitlement, Patreon migration, integrations, support, and admin oversight.
 
 ## Current Project Status
-- Complete deterministic mock-mode V1 prototype implemented in a single Next.js app.
-- Financial engine uses integer minor units, explicit currencies, versioned pricing rules, guarantee eligibility profiles, immutable quote snapshots, and reconciliation states.
-- Stripe, tax, email, storage, Discord, Telegram, and platform billing production boundaries are represented and fail safely as not configured; mock/test mode is fully demonstrable.
-- PostgreSQL schema is provided as a migration reference; local prototype persistence is deterministic seed JSON rather than a running database in this environment.
-- Untested areas: live Stripe, real tax law, production infrastructure, live email, real OAuth providers, and legal/compliance policies.
+- V1 backend conversion is implemented in deterministic test mode with PostgreSQL persistence and server-authoritative domain services.
+- The existing Prompt 2 visual prototype is preserved and now loads runtime state from PostgreSQL when available, with static seed fallback only for unavailable local DB preview.
+- Live Stripe, tax, email, storage, Discord, Telegram, and production infrastructure are not configured and are documented as external blockers.
+- Verification passed on 2026-09-01: typecheck, lint, 19 Vitest tests, production build, 8 Playwright desktop/mobile E2E and screenshot tests, clean `npm ci`, and a fresh temporary PostgreSQL migration/seed/test pass.
 
 ## File Structure
-- `app/`: Next.js App Router entry and global styles.
-- `components/zerofee-app.tsx`: end-to-end interactive product prototype.
-- `lib/money.ts`: integer minor-unit money utilities.
-- `lib/domain/pricing.ts`: Guaranteed Earnings solver and reconciliation service.
-- `lib/domain/seed.ts`: deterministic mock provider data and product state.
-- `lib/domain/types.ts`: domain state and financial type definitions.
-- `scripts/migrate.ts`: writes PostgreSQL schema reference.
-- `scripts/seed.ts`: writes deterministic seed-state evidence.
-- `tests/`: Vitest financial/security tests and Playwright journeys/screenshot QA.
-- `docs/`: implementation, architecture, payment, tax, migration, design, QA, and owner next-step documentation.
+- `app/`: Next.js App Router page, API routes, and global styles.
+- `components/zerofee-app.tsx`: interactive visitor, creator, member, and admin UI shell.
+- `db/migrations/001_initial.sql`: executable PostgreSQL schema.
+- `lib/domain/`: money-safe pricing, reconciliation, seed/demo domain types.
+- `lib/server/`: DB, auth, RBAC policies, creator applications, billing entitlements, pricing, membership payment activation, providers, content, migration, search, webhooks, integrations, and security utilities.
+- `scripts/migrate.ts`: applies SQL migrations and records `schema_migrations`.
+- `scripts/seed.ts`: idempotently seeds deterministic users, countries, plans, creator state, provider catalog, tiers, content, and notifications.
+- `tests/`: financial/security unit tests, PostgreSQL-backed integration tests, browser flows, and screenshot capture tests.
+- `docs/`: product, architecture, payment, tax, migration, security, visual QA, execution ledger, and owner next steps.
 
 ## Architecture & Technical Decisions
-- Framework: Next.js App Router with TypeScript and React.
-- UI: custom CSS tokens and components using a light SaaS visual system with Electric Blue accents.
-- Money: all financial calculations use integer minor units; no binary floating point for money.
-- Payments: creator membership payments are modeled as direct provider-to-creator connected-account flows; ZeroFee SaaS billing is separate.
-- Providers: mock provider is deterministic; Stripe SDK dependency and env boundary are included for future live integration.
-- Database: PostgreSQL schema reference created by migration script; DB-backed ORM is a production follow-up.
-- Auth/RBAC: prototype documents and tests permission boundaries; seeded roles demonstrate member/creator/admin flows.
+- Framework: Next.js App Router, TypeScript, React, custom CSS.
+- Database: PostgreSQL via `pg`; migrations are plain SQL for auditability.
+- Auth: email/password with scrypt hashes, verification tokens, password resets, database sessions, and HTTP-only cookie helpers.
+- Authorization: explicit member/creator/admin roles plus creator ownership checks in server services.
+- Money: integer minor units, explicit currencies, basis-point fees, deterministic rounding, immutable quote snapshots.
+- Payments: creator membership GMV is modeled as buyer-to-provider-to-creator connected account; ZeroFee platform fee is constrained to 0 in the database.
+- Provider boundary: `MockCreatorPaymentsProvider` is deterministic; `StripeCreatorPaymentsProvider` contains live Stripe SDK calls behind env gates.
+- Search: DB-backed scoped search for creator/admin contexts to avoid cross-tenant exposure.
 
 ## Setup & Execution
-- Install: `pnpm install`
-- Migrate schema reference: `pnpm db:migrate`
-- Seed deterministic data: `pnpm seed`
-- Dev server: `pnpm dev`
-- Typecheck: `pnpm typecheck`
-- Tests: `pnpm test`
-- E2E/screenshots: `pnpm test:e2e`
-- Build: `pnpm build`
-- Full verification: `pnpm verify`
+- Copy env: `cp .env.example .env`
+- Docker database: `docker compose up -d postgres`
+- Install: `npm install`
+- Migrate: `npm run db:migrate`
+- Seed: `npm run seed`
+- Dev: `npm run dev`
+- Verify: `npm run typecheck`, `npm test`, `npm run lint`, `npm run build`, `npm run test:e2e`
+- Full scripted verification: `pnpm verify`
+- Local Homebrew PostgreSQL can be used with `DATABASE_URL=postgresql://127.0.0.1:5432/zerofee`.
 
 ## Important Business Logic
-- `zerofee_membership_platform_fee_bps` is always 0.
-- Creator surplus belongs entirely to the creator.
-- A creator shortfall becomes a Guarantee Breach/incident.
-- Guaranteed Earnings requires a current pricing rule and eligible profile; unknown routes are blocked.
-- Buyer final retail price is solved as the lowest legal minor-unit amount satisfying creator target after tax/provider costs.
-- Migration never claims payment credentials moved; fans must authorize new subscriptions.
+- ZeroFee membership platform fee is always 0; database checks enforce `platform_fee_minor = 0` and `zero_fee_platform_fee_minor = 0`.
+- Guaranteed Earnings requires a current provider pricing rule plus an eligible guarantee profile; unverified or stale routes cannot issue guaranteed quotes.
+- The solver finds the lowest minor-unit retail price whose modeled creator proceeds meet or exceed the creator target.
+- Creator surplus belongs entirely to the creator. A shortfall creates a guarantee incident and pauses the unsafe eligibility profile in test mode.
+- Payment webhooks require valid HMAC signatures and are idempotent by provider event id.
+- Patreon migration imports audience data only; it never claims card credentials moved. Fans must authorize new subscriptions.
 
 ## Recent Changes
-- Bootstrapped the full prototype from a spec-only repository.
-- Added financial engine, deterministic seed data, UI surfaces, tests, docs, and QA scripts.
+- Added executable PostgreSQL migration, idempotent seed, and server DB harness.
+- Added auth/session/RBAC, creator application review, SaaS entitlement checks, pricing catalog, tier/quote persistence, mock/Stripe provider boundary, membership payment activation, reconciliation incidents, content/course gating, Patreon CSV import, scoped search, webhooks, API keys, SSRF guard, and upload/rich-text protections.
+- Added PostgreSQL-backed backend tests and updated docs/ledger for Prompt 5 execution.
+- Updated the app entry to load runtime state from PostgreSQL with safe local fallback.
 
 ## Current Priorities
-- Replace schema-reference persistence with real PostgreSQL/ORM migrations.
-- Complete live Stripe Connect configuration after external approval.
-- Add production auth/email/storage infrastructure.
-- Run closed-beta live fee validation before enabling live Guaranteed Earnings.
+- Complete live Stripe account approval and configure real credentials.
+- Have tax/legal counsel validate merchant responsibility, recurring billing terms, refund policy, and `Guaranteed Earnings` wording.
+- Provision production DB, storage, email, observability, secrets, backups, domain, CDN/WAF.
+- Run closed beta with real creators to validate live provider fees, KYC, payouts, disputes, support load, and unit economics.
 
 ## Known Issues
-- Live Stripe/tax/legal capabilities are not configured.
-- Persistence is prototype/demo oriented in this environment.
-- Some advanced provider embedded components are represented by mock states.
+- Docker was unavailable in this local environment; release DB verification used Homebrew PostgreSQL 17 on port 5432.
+- Live Stripe, tax, email, storage, Discord, Telegram, and production infrastructure remain external/not configured.
+- The browser screenshot suite uses Next dev server, so screenshots can show the Next development indicator in local runs.
 
 ## LLM Handoff Notes
-- Read `prompts/1_INITIAL_PROTOTYPE_MASTER_EXECUTION_PROMPT.md`, `prompts/2_DESIGN_SYSTEM_AND_UX_MASTER_PROMPT.md`, `lib/domain/pricing.ts`, and `PROJECT_CONTEXT.md` first.
+- Read `prompts/README.md`, `prompts/5_COMPLETE_REMAINING_V1_BACKEND_EXECUTION_PROMPT.md`, `docs/EXECUTION_STATE.md`, `docs/V1_ACCEPTANCE_MATRIX.md`, and this file first.
 - Do not weaken money invariants or introduce floating-point money math.
-- Keep ZeroFee SaaS billing separate from creator membership GMV.
-- Do not call live payment/tax/legal capabilities complete without external verification.
+- Do not mix ZeroFee SaaS billing with creator membership GMV.
+- Keep live provider capabilities marked external until credentials, provider approval, tax/legal review, and production infrastructure are actually configured.

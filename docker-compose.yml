@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: zerofee
+      POSTGRES_PASSWORD: zerofee
+      POSTGRES_DB: zerofee
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zerofee -d zerofee"]
+      interval: 2s
+      timeout: 5s
+      retries: 20

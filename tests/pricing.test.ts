@@ -58,7 +58,9 @@ describe("GuaranteePricingEngine", () => {
   });
 
   it("covers a deterministic matrix and fuzzes target amounts", () => {
-    for (const target of [100, 199, 500, 1000, 1234, 5000, 9999, 25000]) {
+    const fixedTargets = [100, 199, 500, 1000, 1234, 5000, 9999, 25000];
+    const fuzzTargets = Array.from({ length: 200 }, (_, index) => 50 + ((index * 7919) % 50000));
+    for (const target of [...fixedTargets, ...fuzzTargets]) {
       for (const context of [demoContexts.euConsumer, demoContexts.usCommercialFx]) {
         const quote = solveGuaranteedRetailPrice({
           target: money(target, "EUR"),
@@ -70,8 +72,13 @@ describe("GuaranteePricingEngine", () => {
           creatorId: "creator_nova",
           tierId: "tier_signal"
         });
+        const rule = pricingRules.find((item) => item.version === quote.pricingRuleVersion);
+        if (!rule) throw new Error("missing rule for quote");
+        const previous = modeledCreatorProceeds(money(quote.retail.amountMinor - 1, "EUR"), rule, context, context.buyerTaxCountry === "DE" ? 1900 : 0, context.buyerTaxCountry === "DE");
         expect(quote.modeledCreatorProceeds.amountMinor).toBeGreaterThanOrEqual(target);
+        expect(previous.proceeds.amountMinor).toBeLessThan(target);
         expect(quote.retail.currency).toBe("EUR");
+        expect(quote.platformFee.amountMinor).toBe(0);
       }
     }
   });

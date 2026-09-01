@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: zerofee
+          POSTGRES_PASSWORD: zerofee
+          POSTGRES_DB: zerofee
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zerofee -d zerofee"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://zerofee:zerofee@127.0.0.1:5432/zerofee
+      AUTH_SECRET: ci-only-change-me
+      CREATOR_PAYMENTS_PROVIDER: mock
+      PLATFORM_BILLING_PROVIDER: mock
+      TAX_PROVIDER: mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+      - run: npm run db:migrate
+      - run: npm run seed
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
