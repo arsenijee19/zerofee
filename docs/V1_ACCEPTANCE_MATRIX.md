@@ -43,7 +43,8 @@ Updated: 2026-09-01
 - Pricing tests: 4 tests passed, including minimum price, route blocking, surplus, shortfall and 416 deterministic matrix/property quote cases.
 - PostgreSQL-backed backend tests: 11 tests passed.
 - Security-focused tests: 8 checks across security and backend suites.
-- Playwright: 8 tests passed across desktop and mobile projects.
+- Playwright: 10 tests passed across desktop and mobile projects.
+- Accessibility smoke: 2 project runs passed, checking named controls and horizontal overflow.
 - Screenshot QA: 66 PNG screenshots captured under `test-results/screenshots`.
 - Build: `next build` passed.
 - Lint/typecheck: both passed.

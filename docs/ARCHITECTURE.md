@@ -35,5 +35,5 @@ ZeroFee is a Next.js App Router prototype with a PostgreSQL-backed domain layer 
 
 ## Verification
 - `npm test`: 19 unit/integration tests across pricing, security, and PostgreSQL-backed backend services.
-- `npm run test:e2e`: 8 Playwright desktop/mobile journeys including screenshot capture.
+- `npm run test:e2e`: 10 Playwright desktop/mobile journeys including accessibility smoke and screenshot capture.
 - Release verification included clean `npm ci`, fresh temporary PostgreSQL migration/seed/test, lint, typecheck, build, and full `pnpm verify`.

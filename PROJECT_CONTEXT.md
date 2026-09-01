@@ -9,7 +9,7 @@
 - V1 backend conversion is implemented in deterministic test mode with PostgreSQL persistence and server-authoritative domain services.
 - The existing Prompt 2 visual prototype is preserved and now loads runtime state from PostgreSQL when available, with static seed fallback only for unavailable local DB preview.
 - Live Stripe, tax, email, storage, Discord, Telegram, and production infrastructure are not configured and are documented as external blockers.
-- Verification passed on 2026-09-01: typecheck, lint, 19 Vitest tests, production build, 8 Playwright desktop/mobile E2E and screenshot tests, clean `npm ci`, and a fresh temporary PostgreSQL migration/seed/test pass.
+- Verification passed on 2026-09-01: typecheck, lint, 19 Vitest tests, production build, 10 Playwright desktop/mobile E2E/accessibility/screenshot tests, clean `npm ci`, and a fresh temporary PostgreSQL migration/seed/test pass.
 
 ## File Structure
 - `app/`: Next.js App Router page, API routes, and global styles.
