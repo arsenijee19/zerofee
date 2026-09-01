@@ -1,0 +1,343 @@
+{
+  "mode": "TEST_MODE",
+  "users": [
+    {
+      "id": "user_creator",
+      "name": "Mila Novak",
+      "email": "mila@example.test",
+      "roles": [
+        "CREATOR"
+      ],
+      "emailVerified": true
+    },
+    {
+      "id": "user_member",
+      "name": "Ana Member",
+      "email": "ana@example.test",
+      "roles": [
+        "MEMBER"
+      ],
+      "emailVerified": true
+    },
+    {
+      "id": "user_admin",
+      "name": "ZeroFee Ops",
+      "email": "ops@example.test",
+      "roles": [
+        "ADMIN"
+      ],
+      "emailVerified": true
+    }
+  ],
+  "countries": [
+    {
+      "code": "US",
+      "status": "BETA",
+      "guaranteedRoutes": 1
+    },
+    {
+      "code": "IE",
+      "status": "BETA",
+      "guaranteedRoutes": 1
+    },
+    {
+      "code": "GB",
+      "status": "WAITLIST",
+      "guaranteedRoutes": 0
+    },
+    {
+      "code": "BR",
+      "status": "UNSUPPORTED",
+      "guaranteedRoutes": 0
+    }
+  ],
+  "applications": [
+    {
+      "id": "app_001",
+      "creatorId": "creator_nova",
+      "state": "APPROVED_FOR_PAYOUT_ONBOARDING",
+      "country": "IE",
+      "offering": "Paid research briefings, Discord office hours, downloadable templates"
+    },
+    {
+      "id": "app_002",
+      "creatorId": "creator_rejected",
+      "state": "REJECTED",
+      "country": "BR",
+      "offering": "Unsupported payment route and missing rights attestation"
+    }
+  ],
+  "creator": {
+    "id": "creator_nova",
+    "name": "Mila Novak",
+    "slug": "mila-nova",
+    "country": "IE",
+    "applicationState": "APPROVED_FOR_PAYOUT_ONBOARDING",
+    "kycState": "REQUIREMENTS_DUE",
+    "saasPlan": "Creator",
+    "platformBillingState": "ACTIVE"
+  },
+  "tiers": [
+    {
+      "id": "tier_signal",
+      "name": "Signal Room",
+      "mode": "GUARANTEED_EARNINGS",
+      "target": {
+        "amountMinor": 1000,
+        "currency": "EUR"
+      },
+      "interval": "monthly",
+      "members": 186
+    },
+    {
+      "id": "tier_archive",
+      "name": "Archive Access",
+      "mode": "SIMPLE_PRICE",
+      "target": {
+        "amountMinor": 700,
+        "currency": "EUR"
+      },
+      "interval": "monthly",
+      "members": 42
+    }
+  ],
+  "quotes": [
+    {
+      "id": "quote_tier_signal_eea_1260",
+      "creatorId": "creator_nova",
+      "tierId": "tier_signal",
+      "target": {
+        "amountMinor": 1000,
+        "currency": "EUR"
+      },
+      "retail": {
+        "amountMinor": 1260,
+        "currency": "EUR"
+      },
+      "tax": {
+        "amountMinor": 201,
+        "currency": "EUR"
+      },
+      "providerCost": {
+        "amountMinor": 59,
+        "currency": "EUR"
+      },
+      "billingCost": {
+        "amountMinor": 10,
+        "currency": "EUR"
+      },
+      "fxCost": {
+        "amountMinor": 0,
+        "currency": "EUR"
+      },
+      "modeledCreatorProceeds": {
+        "amountMinor": 1000,
+        "currency": "EUR"
+      },
+      "platformFee": {
+        "amountMinor": 0,
+        "currency": "EUR"
+      },
+      "pricingRuleVersion": "mock-ie-eea-card-consumer-eur-v1",
+      "eligibilityProfileVersion": "mock-ie-eea-card-consumer-eur-v1-eligibility",
+      "paymentContext": {
+        "platformEntityCountry": "US",
+        "platformStripeCountry": "US",
+        "creatorAccountCountry": "IE",
+        "creatorBusinessType": "individual",
+        "creatorSettlementCurrency": "EUR",
+        "buyerTaxCountry": "DE",
+        "issuerRegion": "eea",
+        "paymentMethodFamily": "card",
+        "cardClass": "consumer",
+        "presentmentCurrency": "EUR",
+        "settlementCurrency": "EUR",
+        "domestic": false,
+        "fxRequired": false,
+        "billingInterval": "monthly"
+      },
+      "expiresAt": "2026-09-02T00:00:00.000Z",
+      "status": "ACTIVE"
+    }
+  ],
+  "reconciliations": [
+    {
+      "id": "recon_quote_tier_signal_eea_1260_txn_exact_001",
+      "quoteId": "quote_tier_signal_eea_1260",
+      "target": {
+        "amountMinor": 1000,
+        "currency": "EUR"
+      },
+      "customerCharged": {
+        "amountMinor": 1260,
+        "currency": "EUR"
+      },
+      "actualTax": {
+        "amountMinor": 201,
+        "currency": "EUR"
+      },
+      "actualProviderFee": {
+        "amountMinor": 59,
+        "currency": "EUR"
+      },
+      "zeroFeePlatformFee": {
+        "amountMinor": 0,
+        "currency": "EUR"
+      },
+      "actualCreatorProceeds": {
+        "amountMinor": 1000,
+        "currency": "EUR"
+      },
+      "surplus": {
+        "amountMinor": 0,
+        "currency": "EUR"
+      },
+      "shortfall": {
+        "amountMinor": 0,
+        "currency": "EUR"
+      },
+      "status": "VERIFIED_TARGET_MET",
+      "providerTransactionReference": "txn_exact_001"
+    },
+    {
+      "id": "recon_quote_tier_signal_eea_1260_txn_surplus_001",
+      "quoteId": "quote_tier_signal_eea_1260",
+      "target": {
+        "amountMinor": 1000,
+        "currency": "EUR"
+      },
+      "customerCharged": {
+        "amountMinor": 1260,
+        "currency": "EUR"
+      },
+      "actualTax": {
+        "amountMinor": 201,
+        "currency": "EUR"
+      },
+      "actualProviderFee": {
+        "amountMinor": 9,
+        "currency": "EUR"
+      },
+      "zeroFeePlatformFee": {
+        "amountMinor": 0,
+        "currency": "EUR"
+      },
+      "actualCreatorProceeds": {
+        "amountMinor": 1050,
+        "currency": "EUR"
+      },
+      "surplus": {
+        "amountMinor": 50,
+        "currency": "EUR"
+      },
+      "shortfall": {
+        "amountMinor": 0,
+        "currency": "EUR"
+      },
+      "status": "VERIFIED_WITH_SURPLUS",
+      "providerTransactionReference": "txn_surplus_001"
+    },
+    {
+      "id": "recon_quote_tier_signal_eea_1260_txn_shortfall_001",
+      "quoteId": "quote_tier_signal_eea_1260",
+      "target": {
+        "amountMinor": 1000,
+        "currency": "EUR"
+      },
+      "customerCharged": {
+        "amountMinor": 1260,
+        "currency": "EUR"
+      },
+      "actualTax": {
+        "amountMinor": 201,
+        "currency": "EUR"
+      },
+      "actualProviderFee": {
+        "amountMinor": 234,
+        "currency": "EUR"
+      },
+      "zeroFeePlatformFee": {
+        "amountMinor": 0,
+        "currency": "EUR"
+      },
+      "actualCreatorProceeds": {
+        "amountMinor": 825,
+        "currency": "EUR"
+      },
+      "surplus": {
+        "amountMinor": 0,
+        "currency": "EUR"
+      },
+      "shortfall": {
+        "amountMinor": 175,
+        "currency": "EUR"
+      },
+      "status": "GUARANTEE_SHORTFALL",
+      "providerTransactionReference": "txn_shortfall_001"
+    }
+  ],
+  "migrations": [
+    {
+      "name": "Iva P.",
+      "email": "iva@example.test",
+      "externalTier": "Patreon Pro",
+      "mappedTier": "Signal Room",
+      "status": "CONVERTED",
+      "recoveredMrrMinor": 1000
+    },
+    {
+      "name": "Marko T.",
+      "email": "marko@example.test",
+      "externalTier": "Backer",
+      "mappedTier": "Archive Access",
+      "status": "INVITED",
+      "recoveredMrrMinor": 0
+    },
+    {
+      "name": "Lea K.",
+      "email": "lea@example.test",
+      "externalTier": "Patreon Pro",
+      "mappedTier": "Signal Room",
+      "status": "CLICKED",
+      "recoveredMrrMinor": 0
+    }
+  ],
+  "integrations": [
+    {
+      "name": "Stripe Connect",
+      "status": "TEST MODE: onboarding required",
+      "details": "Direct-charge boundary, embedded onboarding, payouts, refunds, disputes, webhooks"
+    },
+    {
+      "name": "Discord",
+      "status": "Connected in mock mode",
+      "details": "Signal Room maps to Research role with entitlement grant/revoke audit"
+    },
+    {
+      "name": "Telegram",
+      "status": "Mock provider ready",
+      "details": "Private-channel invite and revoke flow behind provider interface"
+    },
+    {
+      "name": "Signed Webhooks",
+      "status": "Active",
+      "details": "HMAC signing, SSRF guard, retry log, endpoint disable policy"
+    }
+  ],
+  "supportTickets": [
+    {
+      "id": "sup_001",
+      "title": "Member cannot access Discord",
+      "owner": "creator_nova",
+      "state": "CREATOR_FIRST",
+      "category": "missing_creator_benefit"
+    },
+    {
+      "id": "sup_002",
+      "title": "Guarantee shortfall review",
+      "owner": "admin",
+      "state": "ZERO_FEE_ESCALATED",
+      "category": "guarantee_reconciliation_issue"
+    }
+  ]
+}
