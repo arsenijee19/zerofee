@@ -35,9 +35,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
       - run: npm run db:migrate
       - run: npm run seed
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: npm run test:e2e

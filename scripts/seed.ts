@@ -118,6 +118,21 @@ async function main() {
     [creator.rows[0].id]
   );
   await client.query("INSERT INTO notifications (user_id, kind, title, body) VALUES ($1,'seed','Seed complete','Your deterministic ZeroFee account is ready')", [fanId]);
+  await client.query(
+    `INSERT INTO integration_connections (creator_id,provider,external_reference,state,metadata)
+     VALUES
+     ($1,'discord','guild_mock_signal','CONNECTED','{"roleMap":{"Signal Room":"Research"}}'::jsonb),
+     ($1,'telegram','chat_mock_signal','CONNECTED','{"access":"invite_link"}'::jsonb),
+     ($1,'email','test_mailbox','CONNECTED','{"mode":"mock"}'::jsonb)
+     ON CONFLICT (creator_id,provider) DO UPDATE SET state = EXCLUDED.state, metadata = EXCLUDED.metadata`,
+    [creator.rows[0].id]
+  );
+  await client.query(
+    `INSERT INTO broadcasts (creator_id,subject,body,audience,state,sent_at)
+     VALUES ($1,'September update','A deterministic test broadcast for active members.','all','SENT',now())
+     ON CONFLICT DO NOTHING`,
+    [creator.rows[0].id]
+  );
   });
 }
 

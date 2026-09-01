@@ -14,8 +14,9 @@ export type ConnectedAccountState = {
 
 export interface CreatorPaymentsProvider {
   createOrRetrieveConnectedAccount(input: { creatorId: string; email: string; country: string; existingStripeAccount?: boolean }): Promise<ConnectedAccountState>;
-  createDirectChargeSubscription(input: { connectedAccountId: string; customerEmail: string; amountMinor: number; currency: string; applicationFeeMinor: 0; quoteId: string }): Promise<{ providerSubscriptionId: string; providerPaymentId: string }>;
+  createRecurringDirectChargeSubscription(input: { connectedAccountId: string; customerEmail: string; amountMinor: number; currency: string; interval: "month" | "year"; applicationFeeMinor: 0; quoteId: string; tierName: string }): Promise<{ providerCustomerId: string; providerPriceId: string; providerSubscriptionId: string; providerInvoiceId: string; providerPaymentId: string }>;
   refundPayment(input: { connectedAccountId: string; providerPaymentId: string; amountMinor?: number; idempotencyKey: string }): Promise<{ refundId: string; status: string }>;
+  getActualProviderFee(input: { connectedAccountId: string; providerPaymentId: string }): Promise<{ actualProviderFeeMinor: number; providerTransactionReference: string }>;
   getBalances(input: { connectedAccountId: string }): Promise<{ availableMinor: number; pendingMinor: number; currency: string }>;
 }
 
@@ -32,16 +33,23 @@ export class MockCreatorPaymentsProvider implements CreatorPaymentsProvider {
     };
   }
 
-  async createDirectChargeSubscription(input: { connectedAccountId: string; customerEmail: string; amountMinor: number; currency: string; applicationFeeMinor: 0; quoteId: string }) {
+  async createRecurringDirectChargeSubscription(input: { connectedAccountId: string; customerEmail: string; amountMinor: number; currency: string; interval: "month" | "year"; applicationFeeMinor: 0; quoteId: string; tierName: string }) {
     if (input.applicationFeeMinor !== 0) throw new Error("ZeroFee application fee must be 0");
     return {
+      providerCustomerId: `cus_mock_${randomToken("cus").slice(4, 14)}`,
+      providerPriceId: `price_mock_${input.amountMinor}_${input.interval}`,
       providerSubscriptionId: `sub_mock_${randomToken("sub").slice(4, 14)}`,
+      providerInvoiceId: `in_mock_${randomToken("in").slice(3, 13)}`,
       providerPaymentId: `pay_mock_${input.quoteId.slice(0, 8)}`
     };
   }
 
   async refundPayment(_input: { connectedAccountId: string; providerPaymentId: string; amountMinor?: number; idempotencyKey: string }) {
     return { refundId: `refund_mock_${randomToken("r").slice(2, 12)}`, status: "succeeded" };
+  }
+
+  async getActualProviderFee(input: { providerPaymentId: string }) {
+    return { actualProviderFeeMinor: 0, providerTransactionReference: input.providerPaymentId };
   }
 
   async getBalances() {
@@ -59,9 +67,14 @@ export class StripeCreatorPaymentsProvider implements CreatorPaymentsProvider {
 
   async createOrRetrieveConnectedAccount(input: { creatorId: string; email: string; country: string; existingStripeAccount?: boolean }) {
     const account = await this.stripe.accounts.create({
-      type: "express",
       country: input.country,
       email: input.email,
+      controller: {
+        stripe_dashboard: { type: "full" },
+        fees: { payer: "account" },
+        losses: { payments: "stripe" },
+        requirement_collection: "stripe"
+      },
       capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
       metadata: { creatorId: input.creatorId, existingStripeRequested: String(Boolean(input.existingStripeAccount)) }
     });
@@ -82,22 +95,41 @@ export class StripeCreatorPaymentsProvider implements CreatorPaymentsProvider {
     };
   }
 
-  async createDirectChargeSubscription(input: { connectedAccountId: string; customerEmail: string; amountMinor: number; currency: string; applicationFeeMinor: 0; quoteId: string }) {
+  async createRecurringDirectChargeSubscription(input: { connectedAccountId: string; customerEmail: string; amountMinor: number; currency: string; interval: "month" | "year"; applicationFeeMinor: 0; quoteId: string; tierName: string }) {
     if (input.applicationFeeMinor !== 0) throw new Error("ZeroFee application fee must be 0");
     const customer = await this.stripe.customers.create({ email: input.customerEmail, metadata: { quoteId: input.quoteId } }, { stripeAccount: input.connectedAccountId });
-    const paymentIntent = await this.stripe.paymentIntents.create(
+    const product = await this.stripe.products.create({ name: input.tierName, metadata: { quoteId: input.quoteId } }, { stripeAccount: input.connectedAccountId });
+    const price = await this.stripe.prices.create(
       {
-        amount: input.amountMinor,
+        unit_amount: input.amountMinor,
         currency: input.currency.toLowerCase(),
-        customer: customer.id,
-        confirm: false,
-        automatic_payment_methods: { enabled: true },
-        application_fee_amount: 0,
+        recurring: { interval: input.interval },
+        product: product.id,
         metadata: { quoteId: input.quoteId }
       },
       { stripeAccount: input.connectedAccountId }
     );
-    return { providerSubscriptionId: `pi_subscription_context_${paymentIntent.id}`, providerPaymentId: paymentIntent.id };
+    const subscription = await this.stripe.subscriptions.create(
+      {
+        customer: customer.id,
+        items: [{ price: price.id }],
+        payment_behavior: "default_incomplete",
+        application_fee_percent: 0,
+        payment_settings: { save_default_payment_method: "on_subscription" },
+        expand: ["latest_invoice.payment_intent"],
+        metadata: { quoteId: input.quoteId }
+      },
+      { stripeAccount: input.connectedAccountId }
+    );
+    const invoice = subscription.latest_invoice as Stripe.Invoice | null;
+    const paymentIntent = invoice?.payment_intent as Stripe.PaymentIntent | null;
+    return {
+      providerCustomerId: customer.id,
+      providerPriceId: price.id,
+      providerSubscriptionId: subscription.id,
+      providerInvoiceId: invoice?.id ?? "",
+      providerPaymentId: paymentIntent?.id ?? ""
+    };
   }
 
   async refundPayment(input: { connectedAccountId: string; providerPaymentId: string; amountMinor?: number; idempotencyKey: string }) {
@@ -106,6 +138,15 @@ export class StripeCreatorPaymentsProvider implements CreatorPaymentsProvider {
       { stripeAccount: input.connectedAccountId, idempotencyKey: input.idempotencyKey }
     );
     return { refundId: refund.id, status: refund.status ?? "pending" };
+  }
+
+  async getActualProviderFee(input: { connectedAccountId: string; providerPaymentId: string }) {
+    const paymentIntent = await this.stripe.paymentIntents.retrieve(input.providerPaymentId, { expand: ["latest_charge.balance_transaction"] }, { stripeAccount: input.connectedAccountId });
+    const charge = typeof paymentIntent.latest_charge === "object" && paymentIntent.latest_charge ? paymentIntent.latest_charge : null;
+    if (!charge) throw new Error("Stripe charge is not available yet");
+    const balanceTransaction = charge && typeof charge.balance_transaction === "object" && charge.balance_transaction ? charge.balance_transaction : null;
+    if (!balanceTransaction || typeof balanceTransaction.fee !== "number") throw new Error("Stripe balance transaction fee is not available yet");
+    return { actualProviderFeeMinor: balanceTransaction.fee, providerTransactionReference: charge.id };
   }
 
   async getBalances(input: { connectedAccountId: string }) {

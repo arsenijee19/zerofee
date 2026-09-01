@@ -4,7 +4,7 @@ import { query } from "@/lib/server/db";
 import { createCreatorProfile, reviewApplication, submitApplication } from "@/lib/server/application-service";
 import { createServerQuote, createTier, publishTier, versionPricingRuleForAdmin } from "@/lib/server/pricing-service";
 import { activateMockPlan, setBillingStateForTest, assertCreatorEntitlement } from "@/lib/server/billing-service";
-import { acceptQuoteAndCreatePendingSubscription, canAccessPost } from "@/lib/server/membership-service";
+import { acceptQuoteAndCreatePendingSubscription, canAccessPost, markSubscriptionRenewal } from "@/lib/server/membership-service";
 import { signPayload, validateOutboundWebhookUrl } from "@/lib/server/security";
 import { processMockWebhook } from "@/lib/server/webhook-service";
 import { demoContexts } from "@/lib/domain/seed";
@@ -88,6 +88,23 @@ describe("real PostgreSQL-backed V1 services", () => {
     const rec = await query<{ surplus_minor: string; zero_fee_platform_fee_minor: string }>("SELECT surplus_minor, zero_fee_platform_fee_minor FROM guarantee_reconciliations WHERE quote_id = $1", [quote.id]);
     expect(Number(rec.rows[0].surplus_minor)).toBeGreaterThan(0);
     expect(Number(rec.rows[0].zero_fee_platform_fee_minor)).toBe(0);
+  });
+
+  it("preserves annual billing intervals through activation and renewal", async () => {
+    const creator = await query<{ id: string }>("SELECT id FROM creator_profiles WHERE slug = 'mila-nova'");
+    const creatorUser = await user(creatorToken);
+    const tier = await createTier(creatorUser, creator.rows[0].id, { name: `Annual ${Date.now()}`, description: "Annual DB tier", benefits: "annual briefings", pricingMode: "GUARANTEED_EARNINGS", targetMinor: 12000, currency: "EUR", interval: "annual" });
+    await publishTier(creatorUser, creator.rows[0].id, tier.tierId);
+    const quote = await createServerQuote({ user: await user(fanToken), creatorId: creator.rows[0].id, tierId: tier.tierId, context: demoContexts.euConsumer, taxBps: 1900, taxInclusive: true });
+    const pending = await acceptQuoteAndCreatePendingSubscription(await user(fanToken), quote.id);
+    const payload = JSON.stringify({ id: `evt_annual_${Date.now()}`, type: "payment.succeeded", data: { quoteId: quote.id, providerPaymentId: pending.providerPaymentId, actualProviderFeeMinor: quote.providerCost.amountMinor } });
+    await processMockWebhook(payload, signPayload(payload, "mock_webhook_secret"), "mock_webhook_secret");
+    const active = await query<{ current_period_end: string; state: string }>("SELECT current_period_end,state FROM membership_subscriptions WHERE id = $1", [pending.subscriptionId]);
+    expect(active.rows[0].state).toBe("ACTIVE");
+    expect(new Date(active.rows[0].current_period_end).getTime() - Date.now()).toBeGreaterThan(300 * 24 * 60 * 60 * 1000);
+    await markSubscriptionRenewal(pending.subscriptionId, true);
+    const renewed = await query<{ current_period_end: string }>("SELECT current_period_end FROM membership_subscriptions WHERE id = $1", [pending.subscriptionId]);
+    expect(new Date(renewed.rows[0].current_period_end).getTime() - Date.now()).toBeGreaterThan(300 * 24 * 60 * 60 * 1000);
   });
 
   it("rejects invalid/duplicate webhooks and creates shortfall incidents once", async () => {

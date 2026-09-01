@@ -1,25 +1,30 @@
 # Execution State
 
-This ledger was rewritten after the Prompt 5 audit. Earlier optimistic `VERIFIED` labels from the visual prototype were not treated as backend evidence.
-
 Updated: 2026-09-01
+
+Earlier visual-prototype labels were re-audited against repository and test evidence. No internally solvable phase remains NOT_STARTED, IN_PROGRESS, or TARGETED_FIX_REQUIRED.
 
 | Phase | State | Evidence | External blockers |
 |---|---|---|---|
-| A Audit and reclassify | VERIFIED | `docs/REMAINING_V1_GAP_AUDIT.md` | None |
-| B PostgreSQL foundation | VERIFIED | `db/migrations/001_initial.sql`, `scripts/migrate.ts`, `scripts/seed.ts`; fresh temporary DB migrated/seeded/tested | Docker daemon unavailable locally; Homebrew PostgreSQL used |
-| C Auth/session/RBAC | VERIFIED | `lib/server/auth.ts`, `lib/server/policies.ts`, backend auth/RBAC tests | None |
-| D Routes and creator workflow | VERIFIED | Creator profile/application/review services, API health/search/content/webhook routes, app runtime DB state | None |
-| E Provider abstractions + Stripe boundary | VERIFIED | `lib/server/providers.ts`, mock provider tests, `docs/STRIPE_CONNECT_IMPLEMENTATION_DECISION.md` | Live Stripe credentials, Connect configuration, and content-platform approval |
-| F SaaS billing/entitlements | VERIFIED | `lib/server/billing-service.ts`, `platform_*` tables, entitlement tests | Live Stripe Billing credentials |
-| G Pricing catalog + tiers + quotes | VERIFIED | `provider_pricing_rules`, `guarantee_eligibility_profiles`, `membership_price_quotes`, solver/property tests, backend quote tests | Live provider pricing verification for production routes |
-| H Fan membership/content | VERIFIED | `lib/server/membership-service.ts`, `lib/server/content-service.ts`, paid-content access tests | Live payment method collection and production storage |
-| I Reconciliation/refunds/disputes/payouts | VERIFIED | Reconciliation persistence, incidents, provider adapter boundary, shortfall tests | Live Stripe balance/refund/dispute/payout events |
-| J Patreon migration | VERIFIED | `lib/server/migration-service.ts`, migration import/invitation tests | Real creator exports and live fan authorization campaigns |
-| K Search/API/integrations/support | VERIFIED | `lib/server/search-service.ts`, `lib/server/integration-service.ts`, API key and tenant-isolation tests | OAuth/email credentials for live remote actions |
-| L Security/concurrency hardening | VERIFIED | 8 security-focused tests across helper and backend suites; webhook idempotency and tamper tests | External penetration test for production |
-| M E2E + clean install + CI | VERIFIED | `npm ci` clean install, fresh DB migration/seed/test, `pnpm verify` green | pnpm install command hung locally after linking; `npm ci` verified clean install |
-| N Targeted visual regression QA | VERIFIED | 66 screenshots captured under `test-results/screenshots`, representative manual inspection, `docs/VISUAL_QA.md` | Browser/device variance; live Stripe embedded UI unavailable |
-| O Documentation/finalization | VERIFIED | README, PROJECT_CONTEXT, docs, acceptance matrix updated | External launch approvals only |
+| A Audit and reclassify | VERIFIED | Prompt/spec audit and remaining gap audit | None |
+| B PostgreSQL foundation | VERIFIED | Migrations 001 and 002, migration runner, deterministic seed | Docker unavailable locally; Homebrew PostgreSQL used |
+| C Auth/session/RBAC | VERIFIED | Auth service, database sessions, route guards and policy tests | None |
+| D Server-authoritative routes | VERIFIED | Public, creator, member and admin App Router pages/actions | None |
+| E Provider abstractions and Stripe boundary | VERIFIED | Mock and Stripe adapters, connected-account onboarding, recurring direct-charge boundary | Live Stripe credentials, approval and configuration |
+| F SaaS billing and entitlements | VERIFIED | Platform plan/subscription persistence and entitlement service | Live Stripe Billing credentials |
+| G Pricing catalog, tiers and quotes | VERIFIED | Versioned provider rules, eligibility profiles, integer solver, immutable quotes | Live provider pricing verification |
+| H Member subscription and content | VERIFIED | Pending/active memberships, recurring provider contract, access API and public post route | Live payment method collection and storage |
+| I Reconciliation, refunds, disputes and payouts | VERIFIED | Provider reconciliation, surplus/shortfall incident records, refund/dispute/balance boundary | Live Stripe event and payout validation |
+| J Patreon migration | VERIFIED | CSV validation, mapped import rows, invitation hashes and migration UI | Real creator export campaigns |
+| K Search, API, integrations and support | VERIFIED | Scoped search/API keys/webhook URL validation, integration records, support/moderation routes | OAuth, bot and email credentials |
+| L Security and concurrency hardening | VERIFIED | Ownership checks, signed/idempotent webhook handling, XSS/CSV/SSRF/upload tests | External penetration test |
+| M Clean install, database and E2E | VERIFIED | Clean install, reset/migrate/seed, 20 Vitest tests, 14 Playwright runs | Live provider suites external |
+| N Targeted visual regression | VERIFIED | 44 real-route screenshots and in-app browser inspection | Browser/device variance; live Stripe UI |
+| O Documentation and release finalization | VERIFIED | Acceptance matrix, gap audit, visual QA, project context and owner actions | Launch approvals only |
 
-No internally solvable phase remains `NOT_STARTED`, `IN_PROGRESS`, or `TARGETED_FIX_REQUIRED`.
+## External Blockers
+
+- Live Stripe Connect/content-platform approval, live secrets, webhook registration and provider pricing agreement.
+- Tax/legal seller responsibility, indirect-tax configuration, agreements and guarantee wording.
+- Production database, object storage/scanning, email, observability, domain, WAF/CDN, backups and secrets management.
+- Live Discord/Telegram/OAuth credentials and closed-beta operational validation.

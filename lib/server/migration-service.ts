@@ -79,6 +79,7 @@ export async function importMigrationCsv(user: AuthUser, creatorId: string, tier
   return transaction(async (client) => {
     const project = await client.query<{ id: string }>("INSERT INTO migration_projects (creator_id, source, name, state) VALUES ($1,'patreon','Patreon import','IMPORTING') RETURNING id", [creatorId]);
     let imported = 0;
+    const inviteTokens: string[] = [];
     for (const row of parsed.filter((r) => r.valid)) {
       const hash = createHash("sha256").update(`${row.externalId}:${row.email}`).digest("hex");
       const saved = await client.query<{ id: string }>(
@@ -91,10 +92,11 @@ export async function importMigrationCsv(user: AuthUser, creatorId: string, tier
       if (saved.rowCount) {
         imported += 1;
         const token = randomToken("mig");
+        inviteTokens.push(token);
         await client.query("INSERT INTO migration_invitations (import_row_id, token_hash, expires_at, status) VALUES ($1,$2,now()+interval '14 days','INVITE_READY')", [saved.rows[0].id, hashToken(token)]);
       }
     }
     await client.query("UPDATE migration_projects SET state = 'IMPORTED' WHERE id = $1", [project.rows[0].id]);
-    return { projectId: project.rows[0].id, parsed: parsed.length, imported, invalid: parsed.filter((r) => !r.valid).length };
+    return { projectId: project.rows[0].id, parsed: parsed.length, imported, invalid: parsed.filter((r) => !r.valid).length, inviteTokens };
   });
 }

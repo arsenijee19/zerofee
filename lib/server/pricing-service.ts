@@ -1,7 +1,7 @@
 import type { PaymentContext, ProviderPricingRule, GuaranteeEligibilityProfile } from "@/lib/domain/types";
 import type { AuthUser } from "@/lib/server/auth";
-import { money } from "@/lib/money";
-import { solveGuaranteedRetailPrice } from "@/lib/domain/pricing";
+import { money, mulBpsRoundUp } from "@/lib/money";
+import { findRule, isRuleCurrent, modeledCreatorProceeds, solveGuaranteedRetailPrice } from "@/lib/domain/pricing";
 import { query, transaction } from "@/lib/server/db";
 import { requireCreatorOwner } from "@/lib/server/policies";
 
@@ -62,8 +62,8 @@ export async function createTier(user: AuthUser, creatorId: string, input: { nam
       [creatorId, input.name, input.description, input.benefits]
     );
     const version = await client.query<{ id: string }>(
-      "INSERT INTO tier_price_versions (tier_id, version, pricing_mode, billing_interval, currency, creator_target_minor) VALUES ($1,1,$2,$3,$4,$5) RETURNING id",
-      [tier.rows[0].id, input.pricingMode, input.interval, input.currency, input.targetMinor]
+      "INSERT INTO tier_price_versions (tier_id, version, pricing_mode, billing_interval, currency, creator_target_minor, simple_retail_minor) VALUES ($1,1,$2,$3,$4,$5,$6) RETURNING id",
+      [tier.rows[0].id, input.pricingMode, input.interval, input.currency, input.targetMinor, input.pricingMode === "SIMPLE_PRICE" ? input.targetMinor : null]
     );
     return { tierId: tier.rows[0].id, priceVersionId: version.rows[0].id };
   });
@@ -75,8 +75,8 @@ export async function publishTier(user: AuthUser, creatorId: string, tierId: str
 }
 
 export async function createServerQuote(args: { user: AuthUser | null; creatorId: string; tierId: string; context: PaymentContext; taxBps: number; taxInclusive: boolean }) {
-  const tier = await query<{ id: string; creator_target_minor: string; currency: "EUR" | "USD"; price_version_id: string }>(
-    `SELECT ct.id, tpv.creator_target_minor, tpv.currency, tpv.id AS price_version_id
+  const tier = await query<{ id: string; creator_target_minor: string; simple_retail_minor: string | null; pricing_mode: "GUARANTEED_EARNINGS" | "SIMPLE_PRICE"; currency: "EUR" | "USD"; price_version_id: string }>(
+    `SELECT ct.id, tpv.creator_target_minor, tpv.simple_retail_minor, tpv.pricing_mode, tpv.currency, tpv.id AS price_version_id
      FROM creator_tiers ct JOIN tier_price_versions tpv ON tpv.tier_id = ct.id
      WHERE ct.id = $1 AND ct.creator_id = $2 AND tpv.active = true`,
     [args.tierId, args.creatorId]
@@ -84,6 +84,37 @@ export async function createServerQuote(args: { user: AuthUser | null; creatorId
   if (!tier.rowCount) throw new Error("Tier not found");
   const rules = await loadProviderPricingRules();
   const profiles = await loadGuaranteeEligibilityProfiles();
+  if (tier.rows[0].pricing_mode === "SIMPLE_PRICE") {
+    const rule = findRule(rules, args.context);
+    if (!rule || !isRuleCurrent(rule)) throw new Error("No current provider pricing rule for this payment context");
+    const retail = money(Number(tier.rows[0].simple_retail_minor ?? tier.rows[0].creator_target_minor), tier.rows[0].currency);
+    const result = modeledCreatorProceeds(retail, rule, args.context, args.taxBps, args.taxInclusive);
+    const simpleQuote = {
+      id: `quote_${args.tierId}_${args.context.issuerRegion}_${retail.amountMinor}`,
+      creatorId: args.creatorId,
+      tierId: args.tierId,
+      target: result.proceeds,
+      retail,
+      tax: result.tax,
+      providerCost: result.providerCost,
+      billingCost: rule.billingFee,
+      fxCost: args.context.fxRequired ? mulBpsRoundUp(retail, rule.fxBps) : money(0, retail.currency),
+      modeledCreatorProceeds: result.proceeds,
+      platformFee: money(0, retail.currency),
+      pricingRuleVersion: rule.version,
+      eligibilityProfileVersion: "SIMPLE_PRICE_NOT_GUARANTEED",
+      paymentContext: args.context,
+      expiresAt: "2026-09-02T00:00:00.000Z",
+      status: "ACTIVE" as const
+    };
+    const saved = await query<{ id: string }>(
+      `INSERT INTO membership_price_quotes
+       (creator_id,tier_id,tier_price_version_id,user_id,target_minor,retail_minor,tax_minor,provider_cost_minor,modeled_creator_proceeds_minor,platform_fee_minor,currency,pricing_rule_version,eligibility_profile_version,payment_context,status,expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,$10,$11,$12,$13,'ACTIVE',now() + interval '15 minutes') RETURNING id`,
+      [args.creatorId, args.tierId, tier.rows[0].price_version_id, args.user?.id ?? null, simpleQuote.target.amountMinor, simpleQuote.retail.amountMinor, simpleQuote.tax.amountMinor, simpleQuote.providerCost.amountMinor, simpleQuote.modeledCreatorProceeds.amountMinor, simpleQuote.retail.currency, simpleQuote.pricingRuleVersion, simpleQuote.eligibilityProfileVersion, simpleQuote.paymentContext]
+    );
+    return { ...simpleQuote, id: saved.rows[0].id };
+  }
   const solved = solveGuaranteedRetailPrice({
     target: money(Number(tier.rows[0].creator_target_minor), tier.rows[0].currency),
     context: args.context,

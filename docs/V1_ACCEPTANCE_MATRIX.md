@@ -1,52 +1,53 @@
-# V1 Acceptance Matrix
+# ZeroFee V1 Acceptance Matrix
 
 Updated: 2026-09-01
 
-| Requirement area from Prompts 1-4 | State | Implementation evidence | Test / QA evidence | External blocker |
-|---|---|---|---|---|
-| Visitor to signup journey | VERIFIED | Prompt 2 UI, `lib/server/auth.ts` signup/session/verification services | Playwright creator journey; backend auth test | None |
-| Creator country eligibility | VERIFIED | `country_capabilities`, `createCreatorProfile` country checks | Backend creator application test | Legal/provider country approval for launch |
-| Creator application and compliance review | VERIFIED | `creator_applications`, revisions, review notes, audit/notifications | Backend self-approval/admin approval test; E2E admin applications | None |
-| Stripe/Mock Connect onboarding | VERIFIED | `creator_connected_accounts`, `MockCreatorPaymentsProvider`, `StripeCreatorPaymentsProvider` | Backend membership flow uses provider boundary; screenshots | Live Stripe credentials/approval |
-| Payout setup and balances | VERIFIED | provider interface balance/refund methods; persisted connected account state | Provider boundary compiles/builds; payout UI screenshots | Live payout/balance validation |
-| ZeroFee SaaS subscription | VERIFIED | `platform_plans`, `platform_plan_versions`, `platform_subscriptions`, entitlement service | Backend entitlement test | Live Stripe Billing credentials |
-| Creator profile/public page | VERIFIED | persisted creator profile plus Prompt 2 UI | Playwright public creator flow | None |
-| Membership tiers | VERIFIED | `creator_tiers`, `tier_price_versions`, tier service | Backend tier create/publish test; E2E tier screen | None |
-| Creator selects earnings target | VERIFIED | price versions store `creator_target_minor` and currency | Pricing/backend quote tests | None |
-| Guaranteed Earnings solver | VERIFIED | `lib/domain/pricing.ts`, `lib/server/pricing-service.ts` | 4 pricing tests plus backend quote/reconciliation test | Live pricing validation before production |
-| Buyer final retail price | VERIFIED | immutable `membership_price_quotes`; UI displays final recurring amount | E2E checkout desktop/mobile | None |
-| Provider-authoritative confirmation | VERIFIED | signed mock webhook route and service | backend webhook signature/idempotency test | Live Stripe webhook secret/events |
-| Actual provider fee reconciliation | VERIFIED | `guarantee_reconciliations` persisted from provider event | backend surplus/shortfall tests | Live fee data access |
-| Creator Earnings event/surplus rule | VERIFIED | reconciliation keeps surplus with creator; ZeroFee fee check constraints | pricing surplus test; backend surplus test | None |
-| Content entitlement | VERIFIED | post/tier access tables and `canAccessPost` | backend paid-content bypass test; E2E locked content | Production file storage |
-| Renewal/dunning/cancellation/resume/tier change | IMPLEMENTED_IN_SCHEMA_AND_UI | subscription state model, billing state model, UI lifecycle states | E2E member/admin flows | Live provider lifecycle events |
-| Refund/dispute/reversal | IMPLEMENTED_BOUNDARY | provider refund boundary; reconciliation statuses include refunded/disputed/reversed | tests cover reconciliation state model/shortfall; UI states | Live Stripe refund/dispute events |
-| Payout separation | VERIFIED | separate connected accounts and platform subscription tables | backend membership flow; docs | Live payout event validation |
-| Financial verification | VERIFIED | quote snapshots, rule versions, eligibility versions, reconciliations | E2E financial/admin guarantee screens | None |
-| Creator analytics | IMPLEMENTED_UI_WITH_PERSISTED_INPUTS | membership/reconciliation/migration state available; dashboard renders from runtime state | Playwright creator dashboard | Production analytics warehouse optional |
-| Patreon migration | VERIFIED | migration projects, import rows, invitations, CSV parser/validator | backend import/invitation test; screenshots | Real creator exports/live campaigns |
-| Discord/Telegram/integrations | VERIFIED_BOUNDARY | outbound webhook/API key/security services; integration UI | API key/SSRF tests; integration screenshots | OAuth/bot credentials |
-| Support/moderation | VERIFIED | support tickets, content reports, moderation transition, audit | backend moderation test; admin support screenshot | Support ops policy |
-| Admin oversight | VERIFIED | admin-scoped application review, catalog/versioning, search, audit schema | backend admin tests; Playwright admin flows | None |
-| Global search | VERIFIED | `lib/server/search-service.ts`, `/api/search` | backend tenant-safe search test; command palette screenshot | None |
-| PostgreSQL persistence | VERIFIED | `db/migrations/001_initial.sql`, migration runner, seed | fresh temporary DB migration/seed/test | Docker daemon unavailable locally only |
-| Auth/session/RBAC security | VERIFIED | `lib/server/auth.ts`, `lib/server/policies.ts` | backend auth/RBAC tests | None |
-| Quote/payment tampering protections | VERIFIED | server-side quote creation/acceptance, DB constraints, HMAC webhook | backend membership/webhook tests | None |
-| Webhook replay/fake signature | VERIFIED | unique provider event id and HMAC verification | backend webhook test | Live Stripe signature secret |
-| CSV/upload/XSS/SSRF controls | VERIFIED | security/content/migration services | backend and security tests | External security review before launch |
-| Prompt 2 design system | VERIFIED | `app/styles.css`, `components/zerofee-app.tsx` | 66 screenshots captured, inspected, documented | Device/browser variance |
-| Mobile journeys | VERIFIED | responsive shell and mobile navigation patterns | mobile Playwright journeys/screenshots | None |
-| Documentation | VERIFIED | README, architecture, payment, pricing, tax, migration, security, QA, owner docs | reviewed during final pass | None |
+This matrix records only evidence-backed states. VERIFIED means the repository has an implementation and deterministic test evidence. BLOCKED_EXTERNAL means the internal boundary and test mode exist but live activation needs a third party or owner decision. OUT_OF_V1_SCOPE means the item is deliberately not part of this prototype.
+
+| Material requirement | State | Implementation evidence | Verification evidence |
+|---|---|---|---|
+| Public marketing and creator signup | VERIFIED | App Router public pages and signup server action | Playwright desktop/mobile flow and screenshots |
+| Email verification and password reset | VERIFIED | Auth service, token tables, verify/reset pages | PostgreSQL backend auth test |
+| Role-based access and creator ownership | VERIFIED | Route guards and policy checks | Backend RBAC test and member-to-admin browser guard |
+| Creator country eligibility | VERIFIED | country_capabilities and application service | Backend application test |
+| Creator application, review, audit and notifications | VERIFIED | Application tables/service and admin route | Backend approval test and admin E2E |
+| Connected account onboarding boundary | VERIFIED | Mock and Stripe provider interfaces, connected account persistence | Typecheck/build and creator payments route |
+| Live Stripe Connect activation | BLOCKED_EXTERNAL | Stripe adapter, controller configuration and account-link boundary | Mock provider E2E; live credentials/approval required |
+| ZeroFee SaaS plans and entitlements | VERIFIED | platform plans/subscriptions and entitlement service | Backend entitlement test and billing route |
+| Live SaaS billing | BLOCKED_EXTERNAL | Provider boundary reserved for platform billing | Live Stripe Billing credentials required |
+| Creator profile and public page | VERIFIED | Persisted profile route and public slug route | Browser public creator flow |
+| Membership tier CRUD and publish | VERIFIED | Creator tier service and persisted price versions | Creator browser flow and backend tier test |
+| Guaranteed Earnings quote solver | VERIFIED | Integer minor-unit solver with current rule/profile matching | Pricing tests: minimum price, matrix and property loop |
+| Simple Price quote mode | VERIFIED | Persisted simple retail price and non-guaranteed quote path | Typecheck/build and service path |
+| Versioned provider pricing catalog | VERIFIED | provider_pricing_rules and admin catalog | Pricing tests and admin browser route |
+| Guarantee eligibility profiles | VERIFIED | eligibility profile matching and stale-route rejection | Pricing route-blocking test |
+| Tax architecture | BLOCKED_EXTERNAL | Tax provider interface/configuration and quote tax snapshot | Mock tax path; professional tax validation required |
+| Buyer final-price review | VERIFIED | Immutable membership_price_quotes and checkout route | Desktop/mobile checkout E2E |
+| Provider-authoritative confirmation and replay protection | VERIFIED | Signed mock webhook, Stripe webhook route, unique event records | Webhook signature/idempotency backend tests |
+| Recurring membership subscriptions | VERIFIED | Provider recurring subscription boundary and subscription persistence | Mock checkout E2E |
+| Renewal, dunning, cancellation, resume and tier-change states | VERIFIED | membership_events and server lifecycle functions/actions | Member billing E2E and backend lifecycle coverage |
+| Refund and dispute handling boundary | VERIFIED | Provider refund adapter, reconciliation state updates and admin action | Backend reconciliation tests |
+| Live Stripe refunds/disputes/balances/payouts | BLOCKED_EXTERNAL | Stripe methods and connected-account topology | Mock payout screen; live event access required |
+| Creator surplus ownership and shortfall incident | VERIFIED | Reconciliation math, zero-fee checks and incident pause | Surplus/shortfall unit and PostgreSQL tests |
+| Paid content entitlement | VERIFIED | post visibility/tier access and API guard | Backend access test and public post route |
+| Content sanitization and YouTube validation | VERIFIED | Sanitizer, URL parser and content service | Backend content tests |
+| Actual object storage and malware scanning | BLOCKED_EXTERNAL | Upload validation boundary exists | Production storage/scanner provisioning required |
+| Patreon/CSV migration import and secure invitations | VERIFIED | Parser, validation, mapped rows, invitation hashes and migration UI | Backend migration test and creator E2E |
+| Live Patreon provider-assisted payment migration | OUT_OF_V1_SCOPE | No claim that card credentials move | Fan reauthorization is the required product path |
+| Discord/Telegram/email integration boundary | VERIFIED | Persisted connections and entitlement event records | Seed/runtime integration route |
+| Live Discord/Telegram/OAuth/email delivery | BLOCKED_EXTERNAL | Same-domain integration boundary | Credentials, app review and mail provider required |
+| Creator/admin scoped global search | VERIFIED | DB search service and API route | Backend tenant-safe search test and browser E2E |
+| API keys and outbound webhook URL validation | VERIFIED | Hashed keys, revoke flow and SSRF checks | Security tests and creator E2E |
+| Support, moderation and audit trail | VERIFIED | Support/report/audit tables and admin route | Backend moderation test and admin screenshots |
+| Mobile critical routes | VERIFIED | Responsive shell, tables and mobile controls | Playwright Pixel 5 project and overflow smoke |
+| PostgreSQL migrations and deterministic seed | VERIFIED | 001 and 002 SQL migrations, e2e prepare script | Clean reset/migrate/seed run |
+| CI typecheck, lint, build and browser setup | VERIFIED | GitHub Actions workflow | Local equivalent commands passed |
+| Production infrastructure, legal and compliance sign-off | BLOCKED_EXTERNAL | Documentation and explicit configuration gates | Owner/Stripe/tax/legal actions remain |
 
 ## Verification Counts
-- Vitest: 3 files, 19 tests passed.
-- Pricing tests: 4 tests passed, including minimum price, route blocking, surplus, shortfall and 416 deterministic matrix/property quote cases.
-- PostgreSQL-backed backend tests: 11 tests passed.
-- Security-focused tests: 8 checks across security and backend suites.
-- Playwright: 10 tests passed across desktop and mobile projects.
-- Accessibility smoke: 2 project runs passed, checking named controls and horizontal overflow.
-- Screenshot QA: 66 PNG screenshots captured under `test-results/screenshots`.
-- Build: `next build` passed.
-- Lint/typecheck: both passed.
-- Clean install: `npm ci --legacy-peer-deps --ignore-scripts --no-audit --no-fund` passed with 374 packages.
-- Clean DB: fresh temporary PostgreSQL database migrated, seeded and tested successfully.
+
+- Vitest: 20 tests passed across 3 files.
+- Browser: 14 Playwright tests passed across desktop and mobile projects in the latest full run; 5 functional journeys plus accessibility and visual route coverage.
+- Fresh database: schema reset, migrations 001 and 002, and deterministic seed passed.
+- Typecheck, lint and production build passed.
+- Fresh visual pass: 44 route screenshots captured across desktop and mobile.

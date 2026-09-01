@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const schema = z.object({
   DATABASE_URL: z.string().url().default("postgresql://127.0.0.1:5432/zerofee"),
+  RUNTIME_MODE: z.enum(["development", "test", "production", "demo"]).default("development"),
   AUTH_SECRET: z.string().min(12).default("dev-only-change-me"),
   CREATOR_PAYMENTS_PROVIDER: z.enum(["mock", "stripe"]).default("mock"),
   PLATFORM_BILLING_PROVIDER: z.enum(["mock", "stripe"]).default("mock"),

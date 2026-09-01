@@ -1,8 +1,5 @@
-import { ZeroFeeApp } from "@/components/zerofee-app";
-import { getRuntimeState } from "@/lib/server/app-state";
+import { MarketingPage } from "@/components/route-ui";
 
-export const dynamic = "force-dynamic";
-
-export default async function Page() {
-  return <ZeroFeeApp initialState={await getRuntimeState()} />;
+export default function Page() {
+  return <MarketingPage />;
 }

@@ -22,7 +22,7 @@
 - Search service scopes creator results to the authenticated creator tenant; admin search is role-gated.
 
 ## Verification
-- 19 Vitest tests passed, including pricing invariants, cross-creator search isolation, API key isolation/revoke, webhook signature/idempotency, creator self-approval bypass, paid-content bypass, upload spoofing, YouTube allowlist, CSV validation, SSRF blocking, and shortfall incident creation.
+- 20 Vitest tests passed, including pricing invariants, annual billing interval preservation, cross-creator search isolation, API key isolation/revoke, webhook signature/idempotency, creator self-approval bypass, paid-content bypass, upload spoofing, YouTube allowlist, CSV validation, SSRF blocking, and shortfall incident creation.
 - 8 Playwright journeys passed across desktop and mobile.
 
 ## Remaining Production Security Work

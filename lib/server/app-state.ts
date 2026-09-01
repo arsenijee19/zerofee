@@ -3,6 +3,7 @@ import { reconcilePayment, solveGuaranteedRetailPrice } from "@/lib/domain/prici
 import { demoContexts, getSeedState } from "@/lib/domain/seed";
 import type { ReconciliationStatus, SeedState } from "@/lib/domain/types";
 import { query } from "@/lib/server/db";
+import { getEnv } from "@/lib/server/env";
 import { loadGuaranteeEligibilityProfiles, loadProviderPricingRules } from "@/lib/server/pricing-service";
 
 export async function getRuntimeState(): Promise<SeedState> {
@@ -108,7 +109,8 @@ export async function getRuntimeState(): Promise<SeedState> {
       integrations: integrations.rowCount ? integrations.rows : base.integrations,
       supportTickets: supportTickets.rowCount ? supportTickets.rows : base.supportTickets
     };
-  } catch {
-    return getSeedState();
+  } catch (error) {
+    if (getEnv().RUNTIME_MODE === "demo") return getSeedState();
+    throw error;
   }
 }

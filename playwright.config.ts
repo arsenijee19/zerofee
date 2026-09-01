@@ -4,14 +4,16 @@ export default defineConfig({
   testDir: "./tests",
   testMatch: ["**/*.spec.ts"],
   timeout: 30000,
+  workers: 1,
+  fullyParallel: false,
   use: {
     baseURL: "http://127.0.0.1:3000",
     trace: "retain-on-failure"
   },
   webServer: {
-    command: "pnpm dev --hostname 127.0.0.1",
+    command: "npm run dev -- --hostname 127.0.0.1",
     url: "http://127.0.0.1:3000",
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 120000
   },
   projects: [

@@ -4,7 +4,7 @@ ZeroFee is a first working prototype of a creator membership SaaS built around o
 
 **Creators choose what they earn. ZeroFee takes 0% of creator membership revenue.**
 
-The app runs in deterministic test mode with a real PostgreSQL schema, server-side auth/session services, RBAC checks, persisted creator applications, tiers, quotes, memberships, payment reconciliations, migration imports, API keys, webhooks, content gating, moderation records, and scoped search. Live third-party calls are behind provider interfaces and remain explicitly not configured until credentials and approvals exist.
+The app runs in deterministic test mode with a real PostgreSQL schema, server-side auth/session services, RBAC checks, persisted creator applications, tiers, quotes, memberships, payment reconciliations, migration imports, API keys, webhooks, content gating, moderation records, and scoped search. Production routes are server-authoritative; the preserved state-machine preview is isolated at /demo. Live third-party calls are behind provider interfaces and remain explicitly not configured until credentials and approvals exist.
 
 ## Run Locally
 
@@ -43,3 +43,11 @@ The prototype is intentionally labelled `TEST MODE`.
 - Live Stripe credentials are not committed.
 
 Live Stripe, tax, legal, and production infrastructure require the owner actions listed in `docs/OWNER_NEXT_STEPS.md`.
+
+## Test Accounts
+
+- Creator: mila@example.test / Password123!
+- Member: ana@example.test / Password123!
+- Admin: ops@example.test / Password123!
+
+The production application uses real route pages backed by PostgreSQL. The original deterministic state-machine preview is available only at /demo and is not used by the production homepage.
