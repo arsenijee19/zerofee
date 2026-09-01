@@ -2,19 +2,16 @@
 
 This directory contains the accumulated ZeroFee V1 specifications.
 
-## Current instruction for the next implementation run
+## Current repository history
 
-**Run only:**
-
-`prompts/5_COMPLETE_REMAINING_V1_BACKEND_EXECUTION_PROMPT.md`
-
-Prompt 5 is the current execution orchestrator. It requires the agent to read Prompts 1–4 completely and then implement all remaining V1 work from the current repository state.
+- Prompt 1 was executed once and produced the original visual/mock prototype around `0a4c005509236deb9d0b5fe90568477648d457d9`.
+- Prompt 5 was subsequently executed and produced the PostgreSQL/server-domain backend pass ending around `1ec2034d774659f575e5787406013a902e395ef3`.
+- An independent audit of that pass found that the backend foundation materially improved, but the browser application still requires full real-route/form/session/DB/provider wiring and genuine functional E2E before V1 can be considered complete.
+- Prompt 6 adds the newest authoritative financial-risk/product decisions: grandfathered pricing, real Guarantee Top-Ups, current Stripe fee matrices, payment-route-aware pricing, self-correcting route rules, guarantee reserve controls, and the creator/owner Stripe access model.
 
 Do **not** independently rerun Prompt 1 from Phase 0.
-Do **not** independently rerun Prompt 2 as a fresh redesign.
-Do **not** execute Prompt 3 and stop before Prompt 4 requirements.
-
-The owner already executed Prompt 1 once. That run produced the visual/mock baseline around commit `0a4c005509236deb9d0b5fe90568477648d457d9`. Prompts 3–5 were written after the audit of that implementation and have not yet been executed by the implementation agent.
+Do **not** rerun Prompt 2 as a fresh redesign.
+Preserve the approved design and correct existing financial work.
 
 ## Authority map
 
@@ -81,18 +78,32 @@ Where Prompt 4 intentionally changes an operating/content assumption from Prompt
 ### Prompt 5
 `5_COMPLETE_REMAINING_V1_BACKEND_EXECUTION_PROMPT.md`
 
-**Current final execution orchestrator.**
+Backend-completeness orchestrator that was executed after the first audit.
 
-It combines all remaining internally solvable requirements from Prompts 1–4, adds missing backend depth and acceptance evidence, and defines the exact implementation order.
+Its requirements remain applicable, but its prior execution report must not be treated as proof that browser wiring/E2E is complete. The actual repository state is authoritative.
 
-Prompt 5 is authoritative for:
+### Prompt 6
+`6_GUARANTEE_PRICING_MATRIX_AND_SELF_CORRECTING_RISK_ENGINE_PROMPT.md`
 
-- execution order;
-- backend completeness;
-- no-stop behavior;
-- evidence required for `VERIFIED`;
-- final Definition of Done;
-- final completion report.
+**Newest authoritative financial-risk / pricing continuation specification.**
+
+Prompt 6 is authoritative for:
+
+- optional existing-member grandfathering when publishing a new tier price version;
+- `Keep existing members at their current price` as the recommended/default creator-friendly choice;
+- a real ZeroFee Guarantee Top-Up when an eligible successful payment falls below the promised creator target;
+- immutable/idempotent top-up ledger and funding boundary;
+- current versioned Stripe fee matrices and source provenance;
+- IP as preview only, never authoritative payment-fee classification;
+- final pricing based on the strongest payment-method/card route context available before buyer confirmation;
+- safe upper bounds when exact pre-charge card classification is unavailable;
+- automatic bounded route correction after deterministic shortfalls;
+- circuit-breaker pause for unexplained pricing anomalies;
+- guarantee reserve/exposure monitoring;
+- creator surplus always remaining creator-owned;
+- creator full Stripe Dashboard access where supported plus ZeroFee platform/API operational visibility without creator impersonation.
+
+Prompt 6 intentionally strengthens the earlier Guarantee Breach behavior: a valid covered shortfall is not only recorded; ZeroFee must create the corresponding guarantee obligation/top-up and then correct or pause the unsafe route.
 
 ## Core rule
 
@@ -105,6 +116,6 @@ For an internally solvable V1 feature, `VERIFIED` requires the relevant combinat
 - server authorization;
 - provider/domain integration;
 - automated test evidence;
-- real DB-backed E2E where applicable.
+- real DB-backed browser E2E where applicable.
 
 External Stripe/legal/tax/production dependencies may remain explicitly blocked, but they must never be used to hide unfinished internal coding work.
