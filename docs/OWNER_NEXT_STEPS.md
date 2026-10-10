@@ -13,6 +13,18 @@
 - Creator/admin scoped search, API keys, outbound webhook endpoint validation, support/audit records.
 - Desktop/mobile visual prototype and screenshot QA evidence.
 
+## Added in the polish pass (Oct 2026)
+- Seller profile: photo, banner, tagline, About, support email, website and up to 8 validated https links; public page with preview-before-publish.
+- Content: post drafts/edit/archive/delete, cover images, file downloads gated by post access, YouTube embeds, sanitized rich text, file library with plan storage quota.
+- Real marketing pages (home, how it works, pricing from DB plans, safety, migration, creators directory) and draft legal pages (counsel review required).
+- Security: CSP and security headers, DB-backed login/signup/reset rate limiting, password policy, open-redirect fix, email verification required to log in, hardened SSRF validator, tenant checks on tiers/files, mock-only actions blocked outside mock mode.
+- Connectors ready for keys only: `EMAIL_PROVIDER=resend` + `RESEND_API_KEY`; `MEDIA_STORAGE_PROVIDER=s3` + `S3_*` (S3/R2/B2); Stripe via existing env vars.
+
+## Remaining before live Stripe
+- Checkout currently assumes an EU consumer card context and 19% tax (`createCheckoutQuoteAction`); derive buyer country/tax from Stripe Tax/Checkout when connecting Stripe.
+- Outbound webhook delivery must re-resolve DNS at send time and block private IPs.
+- Set `APP_URL`, a strong `AUTH_SECRET`, and run behind a proxy that sets `x-forwarded-for`.
+
 ## Owner Input Required
 - Final SaaS plan pricing, quotas and overage policy.
 - Initial launch countries and waitlist policy.

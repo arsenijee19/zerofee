@@ -2,13 +2,16 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
+  outputDir: "test-results/artifacts",
   testMatch: ["**/*.spec.ts"],
   timeout: 30000,
   workers: 1,
   fullyParallel: false,
   use: {
     baseURL: "http://127.0.0.1:3000",
-    trace: "retain-on-failure"
+    trace: "retain-on-failure",
+    // Optional override for environments that ship a pre-installed Chromium at a fixed path.
+    ...(process.env.PW_CHROMIUM_PATH ? { launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } } : {})
   },
   webServer: {
     command: "npm run dev -- --hostname 127.0.0.1",

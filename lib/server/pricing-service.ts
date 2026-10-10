@@ -4,6 +4,36 @@ import { money, mulBpsRoundUp } from "@/lib/money";
 import { findRule, isRuleCurrent, modeledCreatorProceeds, solveGuaranteedRetailPrice } from "@/lib/domain/pricing";
 import { query, transaction } from "@/lib/server/db";
 import { requireCreatorOwner } from "@/lib/server/policies";
+import { demoContexts } from "@/lib/domain/seed";
+import { parse, UserError } from "@/lib/server/validation";
+import { z } from "zod";
+
+const tierSchema = z.object({
+  name: z.string().trim().min(2, "Tier name is too short").max(60, "Tier name must be 60 characters or fewer"),
+  description: z.string().trim().min(2, "Add a short description").max(500, "Description must be 500 characters or fewer"),
+  benefits: z.string().trim().min(2, "List what members get").max(1500, "Benefits must be 1500 characters or fewer"),
+  targetMinor: z.number().int().min(100, "Minimum amount is 1.00").max(1_000_000, "Maximum amount is 10,000.00")
+});
+
+/** Non-persisting indicative price for public pages (same assumptions as the checkout quote action). */
+export async function previewTierPrice(tier: { pricing_mode: string; creator_target_minor: string; simple_retail_minor: string | null; currency: "EUR" | "USD" }) {
+  try {
+    if (tier.pricing_mode === "SIMPLE_PRICE") return money(Number(tier.simple_retail_minor ?? tier.creator_target_minor), tier.currency);
+    const solved = solveGuaranteedRetailPrice({
+      target: money(Number(tier.creator_target_minor), tier.currency),
+      context: demoContexts.euConsumer,
+      rules: await loadProviderPricingRules(),
+      profiles: await loadGuaranteeEligibilityProfiles(),
+      taxBps: 1900,
+      taxInclusive: true,
+      creatorId: "preview",
+      tierId: "preview"
+    });
+    return solved.retail;
+  } catch {
+    return null;
+  }
+}
 
 export function rowToRule(row: Record<string, unknown>): ProviderPricingRule {
   return {
@@ -56,10 +86,13 @@ export function rowToProfile(row: Record<string, unknown>): GuaranteeEligibility
 
 export async function createTier(user: AuthUser, creatorId: string, input: { name: string; description: string; benefits: string; pricingMode: "GUARANTEED_EARNINGS" | "SIMPLE_PRICE"; targetMinor: number; currency: "EUR" | "USD"; interval: "monthly" | "annual" }) {
   await requireCreatorOwner(user, creatorId);
+  parse(tierSchema, input);
+  const duplicate = await query("SELECT 1 FROM creator_tiers WHERE creator_id = $1 AND lower(name) = lower($2)", [creatorId, input.name.trim()]);
+  if (duplicate.rowCount) throw new UserError("You already have a tier with this name");
   return transaction(async (client) => {
     const tier = await client.query<{ id: string }>(
       "INSERT INTO creator_tiers (creator_id, name, description, benefits, state) VALUES ($1,$2,$3,$4,'DRAFT') RETURNING id",
-      [creatorId, input.name, input.description, input.benefits]
+      [creatorId, input.name.trim(), input.description.trim(), input.benefits.trim()]
     );
     const version = await client.query<{ id: string }>(
       "INSERT INTO tier_price_versions (tier_id, version, pricing_mode, billing_interval, currency, creator_target_minor, simple_retail_minor) VALUES ($1,1,$2,$3,$4,$5,$6) RETURNING id",

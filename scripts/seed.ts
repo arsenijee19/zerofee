@@ -1,5 +1,28 @@
 import { closePool, transaction } from "@/lib/server/db";
 import { seedUser } from "@/lib/server/auth";
+import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { getStorage } from "@/lib/server/storage";
+import type pg from "pg";
+
+async function seedAsset(client: pg.PoolClient, creatorId: string, file: string, purpose: "AVATAR" | "BANNER" | "POST_COVER", alt: string) {
+  const bytes = await readFile(`db/seed-assets/${file}`);
+  const mime = file.endsWith(".png") ? "image/png" : "image/jpeg";
+  const objectKey = `media/${creatorId}/seed-${file}`;
+  try {
+    await getStorage().put(objectKey, bytes, mime);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  }
+  const existing = await client.query<{ id: string }>("SELECT id FROM media_assets WHERE object_key = $1", [objectKey]);
+  if (existing.rowCount) return existing.rows[0].id;
+  const saved = await client.query<{ id: string }>(
+    `INSERT INTO media_assets (creator_id,object_key,original_name,mime_type,size_bytes,visibility,purpose,alt_text,sha256,storage_provider)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+    [creatorId, objectKey, file, mime, bytes.byteLength, purpose === "POST_COVER" ? "PRIVATE" : "PUBLIC", purpose, alt, createHash("sha256").update(bytes).digest("hex"), getStorage().provider]
+  );
+  return saved.rows[0].id;
+}
 
 async function main() {
   await transaction(async (client) => {
@@ -115,6 +138,37 @@ async function main() {
     `INSERT INTO posts (creator_id,title,slug,body,visibility,state,youtube_video_id)
      VALUES ($1,'Weekly signal brief','weekly-signal-brief','Members-only briefing body','ALL_PAID','PUBLISHED','dQw4w9WgXcQ')
      ON CONFLICT (creator_id,slug) DO UPDATE SET body = EXCLUDED.body`,
+    [creator.rows[0].id]
+  );
+  const avatarId = await seedAsset(client, creator.rows[0].id, "mila-avatar.png", "AVATAR", "Mila Novak profile photo");
+  const bannerId = await seedAsset(client, creator.rows[0].id, "mila-banner.jpg", "BANNER", "Abstract blue gradient banner");
+  const coverId = await seedAsset(client, creator.rows[0].id, "signal-cover.jpg", "POST_COVER", "Weekly signal brief cover");
+  const otherAvatarId = await seedAsset(client, otherCreator.rows[0].id, "other-avatar.png", "AVATAR", "Other Creator profile photo");
+  await client.query(
+    `UPDATE creator_profiles SET tagline='Independent research briefings, templates and office hours for operators.',
+       bio=$2, avatar_asset_id=$3, banner_asset_id=$4, website_url='https://example.com/mila' WHERE id=$1`,
+    [creator.rows[0].id, "I publish one deeply researched briefing every week, plus the templates I use with my own clients.\n\nMembers get the full archive, a private template vault and monthly live office hours. Everything is written for busy operators who want signal, not noise.", avatarId, bannerId]
+  );
+  await client.query("UPDATE creator_profiles SET tagline='Practical lessons on teaching online.', avatar_asset_id=$2 WHERE id=$1", [otherCreator.rows[0].id, otherAvatarId]);
+  await client.query("DELETE FROM creator_links WHERE creator_id = $1", [creator.rows[0].id]);
+  await client.query(
+    `INSERT INTO creator_links (creator_id,label,url,sort_order) VALUES ($1,'Newsletter archive','https://example.com/mila/archive',0),($1,'YouTube','https://www.youtube.com/@example',1)`,
+    [creator.rows[0].id]
+  );
+  await client.query(
+    `INSERT INTO posts (creator_id,title,slug,body,excerpt,visibility,state,cover_asset_id,published_at)
+     VALUES ($1,'How to read a weekly signal brief','how-to-read-a-signal-brief',$2,'A two-minute guide to getting the most out of every briefing.','PUBLIC','PUBLISHED',NULL,now() - interval '2 days')
+     ON CONFLICT (creator_id,slug) DO NOTHING`,
+    [creator.rows[0].id, "Every briefing follows the same shape: one headline signal, three supporting data points and a short list of actions.\n\nStart with the headline, skim the data points, then decide which action fits your week."]
+  );
+  await client.query(
+    `UPDATE posts SET excerpt='The full weekly briefing with data points, sources and actions for members.', cover_asset_id=$2, published_at = COALESCE(published_at, now() - interval '1 day') WHERE creator_id=$1 AND slug='weekly-signal-brief'`,
+    [creator.rows[0].id, coverId]
+  );
+  await client.query(
+    `INSERT INTO posts (creator_id,title,slug,body,excerpt,visibility,state)
+     VALUES ($1,'Template vault: onboarding checklist','template-vault-onboarding','Draft body for an upcoming members-only template.','Upcoming members-only template.','ALL_PAID','DRAFT')
+     ON CONFLICT (creator_id,slug) DO NOTHING`,
     [creator.rows[0].id]
   );
   await client.query("INSERT INTO notifications (user_id, kind, title, body) VALUES ($1,'seed','Seed complete','Your deterministic ZeroFee account is ready')", [fanId]);

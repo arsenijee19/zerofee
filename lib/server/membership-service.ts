@@ -116,9 +116,16 @@ export async function activateFromProviderPayment(input: { quoteId: string; prov
 
 export async function canAccessPost(user: AuthUser | null, postId: string) {
   const post = await query<{ creator_id: string; visibility: string; body: string; state: string }>("SELECT * FROM posts WHERE id = $1", [postId]);
-  if (!post.rowCount || post.rows[0].state !== "PUBLISHED") return { allowed: false, body: null };
+  if (!post.rowCount) return { allowed: false, body: null };
+  if (post.rows[0].state !== "PUBLISHED") {
+    // Owners and admins may preview drafts and archived posts.
+    const previewer = user ? await query("SELECT 1 FROM creator_profiles WHERE id = $1 AND user_id = $2", [post.rows[0].creator_id, user.id]) : null;
+    return previewer?.rowCount || user?.roles.includes("ADMIN") ? { allowed: true, body: post.rows[0].body } : { allowed: false, body: null };
+  }
   if (post.rows[0].visibility === "PUBLIC") return { allowed: true, body: post.rows[0].body };
   if (!user) return { allowed: false, body: null };
+  const owner = await query("SELECT 1 FROM creator_profiles WHERE id = $1 AND user_id = $2", [post.rows[0].creator_id, user.id]);
+  if (owner.rowCount || user.roles.includes("ADMIN")) return { allowed: true, body: post.rows[0].body };
   const entitlement = await query(
     `SELECT ms.id FROM membership_subscriptions ms
      LEFT JOIN post_tier_access pta ON pta.tier_id = ms.tier_id

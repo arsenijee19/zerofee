@@ -12,3 +12,4 @@ test-results/**
 .env.*.local
 storage/
 npm-debug.log*
+test-results/artifacts/

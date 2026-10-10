@@ -9,7 +9,11 @@ const schema = z.object({
   TAX_PROVIDER: z.enum(["mock", "stripe_tax", "disabled"]).default("mock"),
   STRIPE_SECRET_KEY: z.string().optional().default(""),
   STRIPE_WEBHOOK_SECRET: z.string().optional().default(""),
-  APP_URL: z.string().url().default("http://localhost:3000")
+  APP_URL: z.string().url().default("http://localhost:3000"),
+  EMAIL_PROVIDER: z.enum(["mock", "resend"]).default("mock"),
+  EMAIL_FROM: z.string().default("ZeroFee <no-reply@zerofee.example>"),
+  RESEND_API_KEY: z.string().optional().default(""),
+  MEDIA_STORAGE_PROVIDER: z.enum(["local", "s3"]).default("local")
 });
 
 export function getEnv() {
@@ -17,6 +21,7 @@ export function getEnv() {
   if (process.env.NODE_ENV === "production") {
     if (env.AUTH_SECRET === "dev-only-change-me") throw new Error("AUTH_SECRET must be changed in production");
     if (env.CREATOR_PAYMENTS_PROVIDER === "stripe" && !env.STRIPE_SECRET_KEY) throw new Error("Stripe provider enabled without STRIPE_SECRET_KEY");
+    if (env.EMAIL_PROVIDER === "resend" && !env.RESEND_API_KEY) throw new Error("Email provider enabled without RESEND_API_KEY");
     if (env.CREATOR_PAYMENTS_PROVIDER === "stripe" && !env.STRIPE_WEBHOOK_SECRET) throw new Error("Stripe provider enabled without STRIPE_WEBHOOK_SECRET");
   }
   return env;
